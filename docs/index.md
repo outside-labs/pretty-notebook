@@ -25,6 +25,7 @@ identities
 links
 routes
 checked-publishing
+markdown
 reference
 pnbp_models
 pnbp_commands
