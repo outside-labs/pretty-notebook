@@ -8,6 +8,10 @@ from pretty_notebook import Notebook
 
 @pytest.fixture(params=['legacy', 'typed'])
 def notebook(monkeypatch, tmp_path, request):
+	if request.param == 'legacy':
+		pytest.importorskip('markdown')
+		from pretty_notebook._internal import rendering, legacy_rendering
+		monkeypatch.setattr(rendering, 'render_note', legacy_rendering.render_note)
 	if request.param == 'typed':
 		from pretty_notebook._internal import rendering
 		from pretty_notebook.markdown import render_notebook, RendererContext

@@ -55,6 +55,15 @@ explicit model/mapping arguments and environment values. An explicit
 to the notebook. `NOTE_NESTED` accepts `flat`, `single`, `recurs`, or `all`.
 Every mode excludes `.pnbp/`, `.git/`, `.obsidian/`, and `__pycache__/`.
 
+## Markdown backend
+
+The unreleased development checkout defaults to `MARKDOWN_BACKEND="typed"`.
+`NotebookSettings(markdown_backend="python-markdown")` or the corresponding JSON,
+environment, or mapping key selects the optional compatibility backend. Install
+its `legacy-markdown` extra from the checkout before selecting it. Invalid
+backend names fail validation. See [renderer migration](markdown-migration.md)
+for output differences, limits, and publication-plan invalidation.
+
 ## Explicit initialization and local profiles
 
 ```bash

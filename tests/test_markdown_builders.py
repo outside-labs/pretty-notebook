@@ -37,7 +37,7 @@ def test_links_images_titles_and_code_are_escaped():
                                   Image('/image.png', '<alt>', title='"')),
                         CodeBlock('```\n<script>&\n', 'python'))
     rendered = document.to_html()
-    assert 'href="https://example.com/a%28b%29"' in rendered
+    assert any('href="' + url + '"' in rendered for url in ('https://example.com/a%28b%29', 'https://example.com/a(b)'))
     assert 'title="a &quot;title&quot;"' in rendered
     assert 'alt="<alt>"' in html.unescape(rendered)
     assert '&lt;script&gt;&amp;' in rendered

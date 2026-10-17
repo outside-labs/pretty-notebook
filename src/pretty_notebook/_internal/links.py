@@ -8,8 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 
-import markdown
-from markdown.extensions.toc import slugify
+from pretty_notebook.markdown.dialect import slugify
 
 from pretty_notebook._internal import identities as _identities, storage as _storage
 
@@ -136,14 +135,12 @@ class GraphIndex:
 		if fragment is not None:
 			if path not in self._headings:
 				text = active_source(self.texts[path])
-				parser = markdown.Markdown(extensions=["toc", "attr_list", "fenced_code"])
-				parser.convert(self.texts[path])
-				def ids(tokens):
-					return {token["id"] for token in tokens} | {value for token in tokens for value in ids(token["children"])}
+				from pretty_notebook.markdown import render_notebook
+				heading_ids = {heading.identifier for heading in render_notebook(self.texts[path]).headings}
 				# Custom/raw HTML headings and wiki text inside headings need an
 				# explicit ID before this source-only diagnostic can prove a target.
 				unknown = bool(re.search(r"<h[1-6]\b|^ {0,3}#{1,6}[^\n]*\[\[", text, re.I | re.M))
-				self._headings[path] = ids(parser.toc_tokens), unknown
+				self._headings[path] = heading_ids, unknown
 			known, unknown = self._headings[path]
 			heading = "valid" if fragment in known or slugify(fragment, "-") in known else "unknown" if unknown else "missing"
 		return LinkResolution("resolved", path, identity.id if identity else None, paths, heading)

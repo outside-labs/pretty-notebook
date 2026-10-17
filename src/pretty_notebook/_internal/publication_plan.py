@@ -59,11 +59,11 @@ def negotiate(notebook, mode="auto"):
 
 def renderer_fingerprint(notebook):
     settings = {key: notebook.config.get(key) for key in (
-        "HIDE_COMMIT_TAG", "URL_PREFIX", "ROUTE_MODE", "NOTEBOOK_SLUG", "PUBLICATION_ROUTES",
+        "MARKDOWN_BACKEND", "HIDE_COMMIT_TAG", "URL_PREFIX", "ROUTE_MODE", "NOTEBOOK_SLUG", "PUBLICATION_ROUTES",
     )}
     settings.update(PUB_LNK_ONLY=notebook.PUB_LNK_ONLY, COMMIT_TAG=notebook.COMMIT_TAG, EXCLUDE_TAG=notebook.EXCLUDE_TAG)
-    value = {"policy": "revision-1", "pnbp": version("pretty-notebook"), "markdown": version("Markdown"),
-             "renderer": digest(Path(_rendering.__file__).read_bytes()), "settings": settings}
+    value = {"policy": "revision-2", "pnbp": version("pretty-notebook"),
+             "renderer": _rendering.backend_identity(notebook), "settings": settings}
     return digest(json.dumps(value, sort_keys=True, ensure_ascii=False).encode("utf-8"))
 
 
