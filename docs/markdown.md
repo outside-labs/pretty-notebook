@@ -75,10 +75,46 @@ raise `ParseLimitError` with an error diagnostic and source location; they never
 return a partial document. Smaller limits can be supplied to `parse_blocks`.
 The maximum configurable nesting limit is 64 to keep recursive traversal bounded.
 
-This phase does not interpret inline markup, HTML blocks other than comments,
-or notebook extensions. Unknown constructs remain source-preserved text.
+The block-only entry point does not interpret inline markup or notebook
+extensions. It retains HTML blocks as opaque syntax nodes. Unknown constructs remain source-preserved text.
 It is not a claim of complete CommonMark conformance. The attributed official
 fixtures compare block structure and code bodies; inline output has its own
-acceptance gate. Parsed source can be sent to `PythonMarkdownRenderer` only
-with an explicit `RendererContext(trust="trusted")` until safe typed rendering
-is available. Constructed builder documents retain their existing safe default.
+acceptance gate. Parsed source uses the safe typed renderer by default. Sending original parsed
+source to `PythonMarkdownRenderer` requires an explicit
+`RendererContext(trust="trusted")`. Constructed builder documents retain their
+existing Python-Markdown backend.
+
+## Inline parsing and safe HTML
+
+`parse(source)` parses both blocks and nested inline values. The inline tree
+contains `Text`, `BoldText`, `ItalicText`, `Code`, `SoftBreak`, `HardBreak`,
+`Link`, `Image`, and opaque `RawHtml` nodes. Brackets and delimiter runs are
+resolved as nested structures; emphasis is not a sequence of regex replacements.
+Backslash escapes, named/numeric entities, variable backtick delimiters,
+reference definitions, collapsed/shortcut references, images, and autolinks are
+supported. The original spelling and spans remain available on parsed nodes.
+
+`document.to_html()` uses `TypedRenderer` for parsed documents. Literal text,
+code, attribute values, and image alt text are escaped. HTTP/HTTPS, mailto,
+relative links, and fragments are allowed. Unsafe schemes, encoded scheme
+obfuscation, control characters, backslashes, and protocol-relative links render
+with an empty destination. Syntax recognition is separate from URL permission:
+the tree still records the original destination for inspection.
+
+Raw HTML blocks and inline tags are syntax nodes, escaped by default. An explicit
+`RendererContext(trust="trusted")` allows them verbatim, including their original
+attributes. That policy is only suitable for trusted author content; it does not
+sanitize arbitrary HTML. Literal builder text is always escaped under either
+policy. The existing production notebook renderer is unchanged at this stage.
+
+The attributed fixture corpus now covers all 652 CommonMark 0.31.2 examples:
+block structure/code bodies and native rendered output. Raw HTML fixture output
+uses the explicit trusted policy; executable/unapproved link schemes have a
+separately tested rendering-policy difference. This corpus result is not a
+promise of unlimited input or support for every future specification version.
+Reference definitions are limited to eight physical lines, balanced destinations
+to 32 parentheses, and labels to 999 characters. Inputs beyond these syntax
+bounds remain literal. Inline work has a budget of 32 steps per source character
+(minimum 2,000); exhausted budgets raise `ParseLimitError`. Node and nesting
+limits apply to inlines as well. Long ordinary text, repeated links/code/emphasis,
+and malformed delimiters have dedicated checks.

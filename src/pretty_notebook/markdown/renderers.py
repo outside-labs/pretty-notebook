@@ -57,9 +57,11 @@ class PythonMarkdownRenderer:
         import markdown
         if document.source is not None and context.trust != 'trusted':
             raise ValueError('Parsed source requires a typed renderer or an explicit trusted context.')
-        from .nodes import Container, Link
+        from .nodes import Container, Link, RawHtml
 
         def source(node):
+            if isinstance(node, RawHtml) and context.trust != 'trusted':
+                return Text(node.value).to_markdown()
             if isinstance(node, NotebookLink):
                 address, _, label = node.target.partition('|')
                 label = label.strip() or address.strip()
@@ -84,3 +86,97 @@ class Source(Node):
 
     def _markdown(self):
         return self.value
+
+
+class TypedRenderer:
+    """Render typed nodes directly; escape HTML unless trust is explicit."""
+
+    def render(self, document: Node, context: RendererContext | None = None) -> str:
+        from html import escape
+        from urllib.parse import quote
+        from .inlines import decode
+        from .nodes import (
+            BlockQuote, BoldText, BulletList, Code, CodeBlock, Container,
+            Document, HardBreak, Heading, Image, ItalicText, Link, ListItem,
+            Paragraph, RawHtml, ReferenceDefinition, SoftBreak, ThematicBreak,
+        )
+        context = context or RendererContext()
+
+        def text_escape(value):
+            return escape(value, quote=False).replace(chr(34), '&quot;')
+
+        def url(value):
+            try:
+                safe_url(value)
+            except ValueError:
+                return ''
+            return text_escape(quote(value, safe="/:?#@!$&'()*+,;=%-._~"))
+
+        def title(value):
+            return '' if value is None else ' title="' + text_escape(value) + '"'
+
+        def inline(node):
+            if isinstance(node, Text):
+                return text_escape(node.value)
+            if isinstance(node, Code):
+                return '<code>' + text_escape(node.value) + '</code>'
+            if isinstance(node, HardBreak):
+                return '<br />\n'
+            if isinstance(node, SoftBreak):
+                return '\n'
+            if isinstance(node, RawHtml):
+                return node.value if context.trust == 'trusted' else text_escape(node.value)
+            if isinstance(node, NotebookLink):
+                address, _, label = node.target.partition('|')
+                label = text_escape(label.strip() or address.strip())
+                resolved = context.resolve(node.target)
+                return '<a href="' + url(resolved) + '">' + label + '</a>' if resolved is not None else label
+            if isinstance(node, Image):
+                return '<img src="' + url(node.destination) + '" alt="' + text_escape(node.alt) + '"' + title(node.title) + ' />'
+            content = ''.join(inline(child) for child in node.children) if isinstance(node, Container) else ''
+            if isinstance(node, Link):
+                return '<a href="' + url(node.destination) + '"' + title(node.title) + '>' + content + '</a>'
+            if isinstance(node, BoldText):
+                return '<strong>' + content + '</strong>'
+            if isinstance(node, ItalicText):
+                return '<em>' + content + '</em>'
+            raise TypeError(f'Unsupported inline node: {type(node).__name__}')
+
+        def block(node, tight=False):
+            if isinstance(node, Heading):
+                tag = f'h{node.level}'
+                return '<' + tag + '>' + ''.join(inline(child) for child in node.children) + '</' + tag + '>\n'
+            if isinstance(node, Paragraph):
+                content = ''.join(inline(child) for child in node.children)
+                return content + '\n' if tight else '<p>' + content + '</p>\n'
+            if isinstance(node, CodeBlock):
+                language = decode(node.info).split()[0] if node.info else node.language
+                attr = ' class="language-' + text_escape(language) + '"' if language else ''
+                return '<pre><code' + attr + '>' + text_escape(node.body) + '</code></pre>\n'
+            if isinstance(node, ThematicBreak):
+                return '<hr />\n'
+            if isinstance(node, BlockQuote):
+                return '<blockquote>\n' + ''.join(block(child) for child in node.children) + '</blockquote>\n'
+            if isinstance(node, BulletList):
+                ordered = hasattr(node, 'start')
+                tag = 'ol' if ordered else 'ul'
+                attr = f' start="{node.start}"' if ordered and node.start != 1 else ''
+                return '<' + tag + attr + '>\n' + ''.join(block(child, node.tight) for child in node.children) + '</' + tag + '>\n'
+            if isinstance(node, ListItem):
+                visible = [child for child in node.children if not isinstance(child, ReferenceDefinition)]
+                if not visible:
+                    return '<li></li>\n'
+                content = ''.join(block(child, tight) for child in visible)
+                before = '' if tight and isinstance(visible[0], Paragraph) else '\n'
+                if tight and isinstance(visible[-1], Paragraph):
+                    content = content.removesuffix('\n')
+                return '<li>' + before + content + '</li>\n'
+            if isinstance(node, Document):
+                return ''.join(block(child) for child in node.children)
+            if isinstance(node, ReferenceDefinition):
+                return ''
+            if isinstance(node, RawHtml):
+                return inline(node)
+            return '<p>' + inline(node) + '</p>\n'
+
+        return block(document).removesuffix('\n')

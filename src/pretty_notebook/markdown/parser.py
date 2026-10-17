@@ -136,10 +136,35 @@ def _list(text):
     return len(indent), marker, len(indent) + len(marker) + max(1, width), content
 
 
+_HTML_BLOCK_TAGS = frozenset('address article aside base basefont blockquote body caption center col colgroup dd details dialog dir div dl dt fieldset figcaption figure footer form frame frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link main menu menuitem nav noframes ol optgroup option p param search section summary table tbody td tfoot th thead title tr track ul'.split())
+
+
+def _html_block(text, *, interrupt=False):
+    value = text.removeprefix(' ' * min(3, len(text) - len(text.lstrip(' '))))
+    if not value.startswith('<'):
+        return None
+    if re.match(r'<(?:script|pre|style|textarea)(?:[ \t>]|$)', value, re.I):
+        return (r'</(?:script|pre|style|textarea)>', False)
+    for opening, closing in [('<!--', '-->'), ('<?', r'\?>'), ('<![CDATA[', r'\]\]>')]:
+        if value.startswith(opening):
+            return closing, False
+    if re.match(r'<![A-Za-z]', value):
+        return '>', False
+    tag = re.match(r'</?([A-Za-z][A-Za-z0-9-]*)(?:[ \t/>]|$)', value)
+    if tag and tag[1].casefold() in _HTML_BLOCK_TAGS:
+        return '', True
+    if not interrupt:
+        from .inlines import _HTML
+        match = _HTML.match(value)
+        if match and not value[match.end():].strip():
+            return '', True
+    return None
+
+
 def _interrupt(line, *, paragraph=True):
     marker = _list(line.text)
     list_break = marker and (not paragraph or (marker[3] and (not marker[1][0].isdigit() or int(marker[1][:-1]) == 1)))
-    return bool(_ATX.match(line.text) or _fence(line.text) or _thematic(line.text) or _QUOTE.match(line.text) or list_break)
+    return bool(_ATX.match(line.text) or _fence(line.text) or _thematic(line.text) or _QUOTE.match(line.text) or list_break or _html_block(line.text, interrupt=paragraph) is not None)
 
 
 class _Parser:
@@ -196,6 +221,12 @@ class _Parser:
         end = positions[-1] + 1 if positions else start
         return self.locate(Text(value), start, end, tuple(positions))
 
+    def reference(self, lines, index):
+        if not re.match(r'^ {0,3}\[', lines[index].text):
+            return None
+        from .inlines import reference_definition
+        return reference_definition(lines, index)
+
     def blocks(self, lines, depth=0):
         if depth > self.options.max_nesting:
             self.fail('nesting-limit', 'Markdown nesting limit exceeded.', lines[0].start, lines[-1].end)
@@ -227,6 +258,8 @@ class _Parser:
             elif heading:
                 content = heading[2] or ''
                 content = re.sub(r'[ \t]+#+[ \t]*$', '', content).strip(' \t')
+                if re.fullmatch(r'#+', content):
+                    content = ''
                 content_start = line.text.find(content, len(heading[1])) if content else len(line.text)
                 content_line = line.cut(content_start)
                 content_line = _Line(content, content_line.positions[:len(content)], content_line.start, content_line.end, None, tabs=content_line.tabs)
@@ -244,18 +277,20 @@ class _Parser:
                     body.pop()
                     index -= 1
                 node = CodeBlock('\n'.join(body) + '\n')
-            elif line.text.lstrip().startswith('<!--'):
+            elif (html_block := _html_block(line.text)) is not None:
+                closing, blank_end = html_block
                 body = []
                 while index < len(lines):
+                    if blank_end and lines[index].blank:
+                        break
                     body.append(self.semantic(lines[index])[0])
                     index += 1
-                    if '-->' in body[-1]:
+                    if not blank_end and re.search(closing, body[-1], re.I):
                         break
                 node = RawHtml('\n'.join(body) + '\n')
-            elif re.match(r'^ {0,3}\[[^]\n]+\]:[ \t]*\S', line.text):
-                definition = re.match(r'^ {0,3}\[([^]\n]+)\]:[ \t]*(.*)$', line.text)
-                node = ReferenceDefinition(definition[1], definition[2])
-                index += 1
+            elif (definition := self.reference(lines, index)):
+                node, consumed = definition
+                index += consumed
             elif _QUOTE.match(line.text):
                 inner, lazy = [], False
                 while index < len(lines):
@@ -264,8 +299,11 @@ class _Parser:
                     if quote:
                         stripped = current.cut(quote.end())
                         inner.append(stripped)
-                        probe = stripped
+                        probe, probe_depth = stripped, 0
                         while _QUOTE.match(probe.text) or _list(probe.text):
+                            probe_depth += 1
+                            if probe_depth > self.options.max_nesting:
+                                self.fail('nesting-limit', 'Markdown nesting limit exceeded.', line.start, line.end)
                             quote_prefix = _QUOTE.match(probe.text)
                             probe = probe.cut(quote_prefix.end() if quote_prefix else _list(probe.text)[2])
                         lazy = not probe.blank and probe.indent < 4 and not _interrupt(probe) and not _SETEXT.match(probe.text)
