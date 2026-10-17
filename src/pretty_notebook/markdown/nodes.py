@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from html import escape, unescape
 from urllib.parse import quote, unquote, urlsplit
 
@@ -27,9 +27,16 @@ def safe_url(value: str) -> str:
 
 @dataclass(frozen=True, kw_only=True)
 class Node:
-    """A constructed node; source locations are introduced by the parser."""
+    """An immutable value with optional exact original source and location."""
+
+    span: object | None = field(default=None, compare=False, repr=False)
+    source: str | None = field(default=None, compare=False, repr=False)
+    positions: tuple[int, ...] | None = field(default=None, compare=False, repr=False)
 
     def to_markdown(self) -> str:
+        return self.source if self.source is not None else self._markdown()
+
+    def _markdown(self) -> str:
         raise NotImplementedError
 
     def to_html(self, *, renderer=None, context=None) -> str:
@@ -45,7 +52,7 @@ class Text(Node):
         if not isinstance(self.value, str):
             raise TypeError('Text requires a string.')
 
-    def to_markdown(self):
+    def _markdown(self):
         # Leading indentation must not turn a paragraph into a code block.
         value = literal(self.value)
         return re.sub(r'^ +', lambda m: '&#32;' * len(m[0]), value)
@@ -55,11 +62,14 @@ class Text(Node):
 class Container(Node):
     children: tuple[Node, ...]
 
-    def __init__(self, *children):
+    def __init__(self, *children, span=None, source=None, positions=None):
         values = tuple(Text(child) if isinstance(child, str) else child for child in children)
         if any(not isinstance(child, Node) for child in values):
             raise TypeError('Children must be Markdown nodes or strings.')
         object.__setattr__(self, 'children', values)
+        object.__setattr__(self, 'span', span)
+        object.__setattr__(self, 'source', source)
+        object.__setattr__(self, 'positions', positions)
 
     def content(self):
         return ''.join(child.to_markdown() for child in self.children)
@@ -67,25 +77,27 @@ class Container(Node):
 
 @dataclass(frozen=True, init=False)
 class BoldText(Container):
-    def to_markdown(self):
+    def _markdown(self):
         return '**' + self.content() + '**'
 
 
 @dataclass(frozen=True, init=False)
 class ItalicText(Container):
-    def to_markdown(self):
+    def _markdown(self):
         return '*' + self.content() + '*'
 
 
 @dataclass(frozen=True, init=False)
 class Paragraph(Container):
-    def to_markdown(self):
+    def _markdown(self):
         return self.content()
 
 
 @dataclass(frozen=True, init=False)
 class Document(Container):
-    def to_markdown(self):
+    diagnostics: tuple = ()
+
+    def _markdown(self):
         return '\n\n'.join(child.to_markdown() for child in self.children)
 
 
@@ -102,7 +114,7 @@ class Heading(Container):
         super().__init__(*children)
         object.__setattr__(self, 'level', level)
 
-    def to_markdown(self):
+    def _markdown(self):
         return '#' * self.level + ' ' + self.content()
 
 
@@ -113,13 +125,15 @@ class ListItem(Document):
 
 @dataclass(frozen=True, init=False)
 class BulletList(Container):
+    tight: bool = True
+
     def __init__(self, *items):
         super().__init__(*(item if isinstance(item, ListItem) else ListItem(Paragraph(item)) for item in items))
 
     def marker(self, position):
         return '- '
 
-    def to_markdown(self):
+    def _markdown(self):
         lines = []
         for position, item in enumerate(self.children):
             marker = self.marker(position)
@@ -155,7 +169,7 @@ class Link(Container):
             raise TypeError('Link title must be a string.')
         object.__setattr__(self, 'title', title)
 
-    def to_markdown(self):
+    def _markdown(self):
         destination = quote(self.destination, safe='/:#?&=%@+,$;~')
         title = '' if self.title is None else ' "' + escape(self.title, quote=True) + '"'
         return f'[{self.content()}](<{destination}>{title})'
@@ -172,7 +186,7 @@ class Image(Node):
         if not isinstance(self.alt, str) or (self.title is not None and not isinstance(self.title, str)):
             raise TypeError('Image alt and title must be strings.')
 
-    def to_markdown(self):
+    def _markdown(self):
         return '!' + Link(self.destination, self.alt, title=self.title).to_markdown()
 
 
@@ -180,6 +194,7 @@ class Image(Node):
 class CodeBlock(Node):
     body: str
     language: str = ''
+    info: str = field(default='', kw_only=True)
 
     def __post_init__(self):
         if not isinstance(self.body, str) or not isinstance(self.language, str):
@@ -187,7 +202,7 @@ class CodeBlock(Node):
         if self.language and not re.fullmatch(r'[\w+-]+', self.language):
             raise ValueError('Code language must be a single language identifier.')
 
-    def to_markdown(self):
+    def _markdown(self):
         longest = max((len(match[0]) for match in re.finditer(r'`+', self.body)), default=0)
         fence = '`' * max(3, longest + 1)
         return fence + self.language + '\n' + self.body + ('' if self.body.endswith('\n') or not self.body else '\n') + fence
@@ -211,5 +226,35 @@ def from_component(value) -> Node:
 class NotebookLink(Node):
     target: str
 
-    def to_markdown(self):
+    def _markdown(self):
         return '[[' + self.target + ']]'
+
+
+@dataclass(frozen=True, init=False)
+class BlockQuote(Document):
+    def _markdown(self):
+        return '\n'.join('> ' + line for line in super()._markdown().split('\n'))
+
+
+@dataclass(frozen=True)
+class ThematicBreak(Node):
+    def _markdown(self):
+        return '---'
+
+
+@dataclass(frozen=True)
+class RawHtml(Node):
+    value: str
+
+    def _markdown(self):
+        return self.value
+
+
+@dataclass(frozen=True)
+class ReferenceDefinition(Node):
+    label: str
+    destination: str
+    title: str | None = None
+
+    def _markdown(self):
+        return '[' + self.label + ']: ' + self.destination

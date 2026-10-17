@@ -55,6 +55,8 @@ class PythonMarkdownRenderer:
 
     def render(self, document: Node, context: RendererContext) -> str:
         import markdown
+        if document.source is not None and context.trust != 'trusted':
+            raise ValueError('Parsed source requires a typed renderer or an explicit trusted context.')
         from .nodes import Container, Link
 
         def source(node):
@@ -80,5 +82,5 @@ class Source(Node):
 
     value: str
 
-    def to_markdown(self):
+    def _markdown(self):
         return self.value

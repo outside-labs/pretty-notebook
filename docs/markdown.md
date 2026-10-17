@@ -47,3 +47,38 @@ to adapt them explicitly. Wiki links resolve through the supplied notebook and
 fall back to a literal label without one. No web or validation framework is
 required. Block/inline parsing, notebook dialect extensions, and a backend
 migration are subsequent gates in MD-02 through MD-05.
+
+## Source-aware block parsing
+
+`parse_blocks(source)` returns an immutable `Document` containing headings,
+paragraphs, thematic breaks, fenced/indented code, block quotes, and nested
+ordered/unordered lists. ATX headings require a space after their marker;
+setext headings can span multiple lines. List indentation, lazy paragraph
+continuations, tight/loose lists, and mixed fence lengths follow the supported
+CommonMark 0.31.2 block rules. HTML comments are opaque nodes, and reference
+definitions are retained for the subsequent inline phase.
+
+Every parsed node has a `SourceSpan`: half-open Unicode code-point offsets
+`start`/`end` and one-based `start_line`/`start_column` and
+`end_line`/`end_column`. A nested node's span covers its original source,
+including any intervening container prefixes. Inline text also retains its
+character positions so later inline parsing can map around these prefixes.
+`node.to_markdown()` returns that exact original slice. Parsing normalizes line
+endings only in semantic values; the document preserves CR, LF, CRLF, trailing
+whitespace, unknown syntax, and the original final newline. Parsing
+`note.current_md` does not change the note, pending edits, files, or indexes.
+
+Unclosed fences are valid through the end of their container and produce an
+informational `Diagnostic` in `document.diagnostics`. `ParseOptions` defaults
+to 2,000,000 characters, 64 container levels, and 100,000 nodes. Limit violations
+raise `ParseLimitError` with an error diagnostic and source location; they never
+return a partial document. Smaller limits can be supplied to `parse_blocks`.
+The maximum configurable nesting limit is 64 to keep recursive traversal bounded.
+
+This phase does not interpret inline markup, HTML blocks other than comments,
+or notebook extensions. Unknown constructs remain source-preserved text.
+It is not a claim of complete CommonMark conformance. The attributed official
+fixtures compare block structure and code bodies; inline output has its own
+acceptance gate. Parsed source can be sent to `PythonMarkdownRenderer` only
+with an explicit `RendererContext(trust="trusted")` until safe typed rendering
+is available. Constructed builder documents retain their existing safe default.
