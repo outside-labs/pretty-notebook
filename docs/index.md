@@ -26,6 +26,7 @@ links
 routes
 checked-publishing
 markdown
+markdown-migration
 reference
 pnbp_models
 pnbp_commands

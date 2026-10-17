@@ -27,10 +27,12 @@ keywords = [
 
 dependencies = [
     "click>=8.0",
-    "markdown>=3.3.4",
     "requests>=2.26",
     "rich>=10.6",
 ]
+
+[project.optional-dependencies]
+legacy-markdown = ["markdown>=3.3.4"]
 
 [project.urls]
 Homepage = "https://outside-labs.com"

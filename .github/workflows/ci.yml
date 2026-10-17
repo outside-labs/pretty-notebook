@@ -37,7 +37,7 @@ jobs:
       - name: Install package and test tools
         run: |
           python -m pip install --upgrade pip
-          python -m pip install --editable . pytest ruff
+          python -m pip install --editable ".[legacy-markdown]" pytest ruff
 
       - name: Compile Python sources
         run: python -W error -m compileall -q src apps/web tests scripts
@@ -47,6 +47,10 @@ jobs:
 
       - name: Run tests
         run: python -m pytest
+
+      - name: Check bounded Markdown workloads
+        if: matrix.python-version == '3.14'
+        run: python scripts/check_markdown.py --legacy
 
   package:
     name: Build and inspect distributions
@@ -87,6 +91,7 @@ jobs:
           "$test_venv/bin/python" -m pip install dist/pretty-notebook/*.whl
           "$test_venv/bin/python" -m pip install --no-deps dist/pnbp/*.whl
           "$test_venv/bin/python" -m pip check
+          "$test_venv/bin/python" -c "import importlib.util; assert importlib.util.find_spec('markdown') is None"
           "$test_venv/bin/python" -c "import pretty_notebook, pnbp; assert pretty_notebook.Notebook is pnbp.Notebook"
           "$test_venv/bin/pnbp" --help
           "$test_venv/bin/pnbp" deploy plan --domain notes.example.com \

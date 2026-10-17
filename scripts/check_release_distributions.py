@@ -24,6 +24,10 @@ def check_distributions(directory=Path("dist")):
                 assert all(".dist-info/" in path for path in files), "Bridge must contain metadata only"
                 assert not any(path.endswith("entry_points.txt") for path in files)
             else:
+                requirements = metadata.get_all("Requires-Dist", [])
+                assert not any(item.lower().startswith("markdown") and ";" not in item for item in requirements), "Python-Markdown must remain optional"
+                assert "pretty_notebook/markdown/parser.py" in files
+                assert "pretty_notebook/markdown/dialect.py" in files
                 assert "pretty_notebook/__init__.py" in files
                 assert "pnbp/__init__.py" in files
                 assert any(path.startswith("pretty_notebook/resources/deploy/") for path in files)

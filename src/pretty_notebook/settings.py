@@ -77,6 +77,8 @@ def _validate_config(config):
 		elif key in _SETTING_NAMES and key not in _BOOL_KEYS | _OPTIONAL_KEYS:
 			if not isinstance(value, str):
 				raise SettingsError(f"{key} must be a string.")
+	if config.get("MARKDOWN_BACKEND", "typed") not in {"typed", "python-markdown"}:
+		raise SettingsError("MARKDOWN_BACKEND must be typed or python-markdown.")
 	if config.get("NOTE_NESTED", "flat") not in {"flat", "single", "recurs", "all"}:
 		raise SettingsError("NOTE_NESTED must be flat, single, recurs, or all.")
 	from pretty_notebook._internal.routes import SEGMENT, validate_prefix, validate_route
@@ -115,6 +117,7 @@ class NotebookSettings:
 	html_path: str | None = None
 	venv_path: str | None = None
 	api_base: str | None = None
+	markdown_backend: Literal["typed", "python-markdown"] = "typed"
 	note_nested: Literal["flat", "single", "recurs", "all"] = "flat"
 	route_mode: Literal["flat", "hierarchical", "namespaced"] = "flat"
 	notebook_slug: str = ""

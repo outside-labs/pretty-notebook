@@ -62,7 +62,10 @@ class PythonMarkdownRenderer:
     """
 
     def render(self, document: Node, context: RendererContext) -> str:
-        import markdown
+        try:
+            import markdown
+        except ModuleNotFoundError as error:
+            raise RuntimeError('PythonMarkdownRenderer requires pretty-notebook[legacy-markdown].') from error
         if document.source is not None and context.trust != 'trusted':
             raise ValueError('Parsed source requires a typed renderer or an explicit trusted context.')
         from .nodes import Container, Link, RawHtml
@@ -151,9 +154,6 @@ class TypedRenderer:
                 return ''
             return text_escape(quote(value, safe="/:?#@!$&'()*+,;=%-._~"))
 
-        def title(value):
-            return '' if value is None else ' title="' + text_escape(value) + '"'
-
         def attrs(values, **overrides):
             values = {**dict(values), **overrides}
             allowed = {'id', 'class', 'title', 'lang', 'dir', 'role'}
@@ -232,14 +232,21 @@ class TypedRenderer:
                 label = text_escape(label.strip() or address.strip().replace('#', ' > '))
                 resolved = resolve(node.target)
                 # Preserve the established notebook-link attribute spelling.
-                return "<a href='" + (url(resolved).replace("'", '&#39;')) + "'>" + label + '</a>' if resolved is not None else label
+                if resolved is None:
+                    return label
+                if notebook_dialect:
+                    return "<a href='" + url(resolved).replace("'", '&#39;') + "'>" + label + '</a>'
+                return '<a href="' + url(resolved) + '">' + label + '</a>'
             if isinstance(node, ImageEmbed):
                 from pretty_notebook._internal.routes import public_url
                 prefix = context.notebook.config.get('URL_PREFIX', '') if context.notebook else ''
                 image_url = public_url(prefix, '/static/imgs/' + quote(node.name, safe=''))
                 return '<img class="img-fluid" src=\'' + url(image_url).replace("'", '&#39;') + "'>"
             if isinstance(node, Image):
-                return '<img src="' + url(node.destination) + '" alt="' + text_escape(node.alt) + '"' + title(node.title) + attrs(node.attributes) + ' />'
+                values = dict(node.attributes)
+                if node.title is not None:
+                    values.setdefault('title', node.title)
+                return '<img src="' + url(node.destination) + '" alt="' + text_escape(node.alt) + '"' + attrs(values) + ' />'
             if isinstance(node, FootnoteReference):
                 label = node.label
                 if label not in footnotes:
@@ -250,7 +257,10 @@ class TypedRenderer:
             content = ''.join(inline(child) for child in node.children) if isinstance(node, Container) else ''
             if isinstance(node, Link):
                 extra = ' rel="nofollow" target="_blank"' if notebook_dialect else ''
-                rendered = '<a' + extra + ' href="' + url(node.destination) + '"' + title(node.title) + attrs(node.attributes) + '>' + content + '</a>'
+                values = dict(node.attributes)
+                if node.title is not None:
+                    values.setdefault('title', node.title)
+                rendered = '<a' + extra + ' href="' + url(node.destination) + '"' + attrs(values) + '>' + content + '</a>'
                 if notebook_dialect:
                     from pretty_notebook._internal.icons import render_icon
                     rendered += ' ' + render_icon('external', size='sm')
@@ -289,7 +299,10 @@ class TypedRenderer:
                 if notebook_dialect and language.casefold() == 'mermaid':
                     return '<pre class="mermaid">' + text_escape(node.body) + '</pre>\n'
                 code_attr = ' class="language-' + text_escape(language) + '"' if language else ''
-                return '<pre' + attrs(options) + '><code' + code_attr + '>' + text_escape(node.body) + '</code></pre>\n'
+                body = node.body
+                if node.source is None and body and not body.endswith('\n'):
+                    body += '\n'
+                return '<pre' + attrs(options) + '><code' + code_attr + '>' + text_escape(body) + '</code></pre>\n'
             if isinstance(node, ThematicBreak):
                 return '<hr />\n'
             if isinstance(node, BlockQuote):

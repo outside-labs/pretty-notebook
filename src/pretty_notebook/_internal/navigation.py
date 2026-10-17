@@ -1,11 +1,7 @@
 """Derived local navigation and explicit, independent traversal history."""
 
 from dataclasses import dataclass
-from html import unescape
 from pathlib import PurePosixPath
-import re
-
-import markdown
 
 from pretty_notebook._internal import identities as _identities, links as _links, search as _search
 
@@ -141,13 +137,9 @@ class NavigationIndex:
 	def outline(self, target) -> tuple[Heading, ...]:
 		entry = self.entry(target)
 		if entry.path not in self._outlines:
-			parser = markdown.Markdown(extensions=["toc", "attr_list", "fenced_code"])
-			parser.convert(self._graph.texts[entry.path])
-			def headings(tokens):
-				for token in tokens:
-					yield Heading(token["level"], unescape(re.sub(r"<[^>]+>", "", token["name"])), token["id"])
-					yield from headings(token["children"])
-			self._outlines[entry.path] = tuple(headings(parser.toc_tokens))
+			from pretty_notebook.markdown import render_notebook
+			metadata = render_notebook(self._graph.texts[entry.path]).headings
+			self._outlines[entry.path] = tuple(Heading(item.level, item.title, item.identifier) for item in metadata)
 		return self._outlines[entry.path]
 
 	def backlinks(self, target) -> tuple[NavigationEntry, ...]:

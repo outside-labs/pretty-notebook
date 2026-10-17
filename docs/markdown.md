@@ -1,8 +1,9 @@
 # Typed Markdown
 
 The `pretty_notebook.markdown` module composes immutable Markdown values. It is
-separate from the existing string-like notebook components; production note
-rendering still uses Python-Markdown.
+separate from the existing string-like notebook components. This development
+checkout uses the in-house typed renderer by default; the published 0.10.0
+release is unchanged. See [renderer migration](markdown-migration.md).
 
 ```python
 from pretty_notebook.markdown import (
@@ -34,7 +35,8 @@ parsers or complete source-location models. Their `to_markdown()` output is
 deterministic, not a claim to preserve arbitrary original Markdown.
 
 `to_html(renderer=..., context=...)` accepts the `Renderer` protocol. The
-initial `PythonMarkdownRenderer` uses the same extensions as production.
+default `TypedRenderer` renders these values directly. The optional
+`PythonMarkdownRenderer` supports compatibility comparisons.
 `RendererContext(notebook=nb, source_path="folder/note.md", trust="escape")`
 carries notebook resolution and an explicit HTML policy. Builders offer no raw
 HTML node, so literal text remains escaped even with `trust="trusted"`.
@@ -81,8 +83,7 @@ It is not a claim of complete CommonMark conformance. The attributed official
 fixtures compare block structure and code bodies; inline output has its own
 acceptance gate. Parsed source uses the safe typed renderer by default. Sending original parsed
 source to `PythonMarkdownRenderer` requires an explicit
-`RendererContext(trust="trusted")`. Constructed builder documents retain their
-existing Python-Markdown backend.
+`RendererContext(trust="trusted")`. Constructed builder documents also use the typed renderer by default.
 
 ## Inline parsing and safe HTML
 
@@ -105,7 +106,8 @@ Raw HTML blocks and inline tags are syntax nodes, escaped by default. An explici
 `RendererContext(trust="trusted")` allows them verbatim, including their original
 attributes. That policy is only suitable for trusted author content; it does not
 sanitize arbitrary HTML. Literal builder text is always escaped under either
-policy. The existing production notebook renderer is unchanged at this stage.
+policy. Notebook conversion uses the documented trusted-author HTML policy;
+standalone parsing/rendering keeps the safe escaped default.
 
 The attributed fixture corpus now covers all 652 CommonMark 0.31.2 examples:
 block structure/code bodies and native rendered output. Raw HTML fixture output
@@ -139,7 +141,7 @@ The notebook dialect supports:
   checkboxes.
 - `[^label]` footnote references, indented multi-block definitions, stable
   numbering, and backlinks for repeated references. Unknown references remain
-  literal.
+  literal; the first definition of a repeated label wins.
 - Heading suffix attributes (`{#anchor .class}` or `{: #anchor}`), standalone
   block attribute lists (`{: .class}`), inline element attributes, and fenced
   code attributes such as `{.python #sample .extra}`. Attribute values are
@@ -164,6 +166,7 @@ and Mermaid bodies preserve tabs, indentation, Unicode and trailing newlines;
 HTML escaping is the only rendering transformation of their bodies. The generic
 CommonMark parser retains its specification-defined fence indentation rules.
 
-The direct renderer is available for preview and compatibility checking.
-Production note rendering still uses Python-Markdown until the MD-05 migration
-and dependency-removal gates pass.
+The direct renderer is used by notebook conversion, preview and publication.
+Navigation and graph heading validation use its same structured heading metadata.
+Python-Markdown is an optional compatibility backend rather than a runtime
+requirement; see the [migration guide](markdown-migration.md).
