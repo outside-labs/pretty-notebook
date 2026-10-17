@@ -168,8 +168,8 @@ def _interrupt(line, *, paragraph=True):
 
 
 class _Parser:
-    def __init__(self, source, options):
-        self.mapping, self.options = SourceMap(source), options
+    def __init__(self, source, options, dialect='commonmark'):
+        self.mapping, self.options, self.dialect = SourceMap(source), options, dialect
         self.diagnostics, self.count = [], 0
 
     def fail(self, code, message, start=0, end=0):
@@ -237,8 +237,20 @@ class _Parser:
                 index += 1
                 continue
             begin = index
+            special = None
             fence, heading = _fence(line.text), _ATX.match(line.text)
-            if fence:
+            if self.dialect == 'notebook':
+                from .dialect import attributes, special_block
+                if nodes and line.text.strip().startswith('{:') and (attrs := attributes(line.text.strip())) is not None:
+                    object.__setattr__(nodes[-1], 'attributes', attrs)
+                    self.locate(nodes[-1], nodes[-1].span.start, line.end)
+                    index += 1
+                    continue
+                if not fence and not heading and not _thematic(line.text):
+                    special = special_block(self, lines, index, depth)
+            if special:
+                node, index = special
+            elif fence:
                 marker, info = fence[1], fence[2].strip()
                 indent, body = line.indent, []
                 index += 1
@@ -249,10 +261,14 @@ class _Parser:
                         closed = True
                         index += 1
                         break
-                    body.append(self.semantic(current, min(indent, current.indent))[0] + '\n')
+                    body.append(self.semantic(current, 0 if self.dialect == 'notebook' else min(indent, current.indent))[0] + '\n')
                     index += 1
                 language = info.split()[0] if info else ''
                 node = CodeBlock(''.join(body), language if re.fullmatch(r'[\w+-]*', language) else '', info=info)
+                if self.dialect == 'notebook' and language.lower() == 'mermaid':
+                    from .nodes import Mermaid
+                    node = Mermaid(''.join(body))
+                    object.__setattr__(node, 'info', info)
                 if not closed:
                     self.diagnostics.append(Diagnostic('unclosed-fence', 'Code fence continues through end of container.', self.mapping.span(line.start, lines[index - 1].end)))
             elif heading:
@@ -364,6 +380,9 @@ class _Parser:
                            for left, right in zip(children, children[1:])):
                         loose = True
                     item = ListItem(*children)
+                    if self.dialect == 'notebook':
+                        from .dialect import prepare_task_item
+                        item = prepare_task_item(self, item)
                     items.append(self.locate(item, lines[item_begin].start, lines[index - 1].end))
                 node = OrderedList(*items, start=int(first_marker[:-1])) if ordered else BulletList(*items)
                 object.__setattr__(node, 'tight', not loose)
@@ -391,7 +410,7 @@ class _Parser:
         return nodes
 
 
-def parse_blocks(source: str, *, options: ParseOptions | None = None) -> Document:
+def parse_blocks(source: str, *, options: ParseOptions | None = None, dialect='commonmark') -> Document:
     """Parse block structure without changing source or touching notebook state.
 
     Inline syntax remains Text in this phase. Unsupported syntax remains literal.
@@ -399,10 +418,13 @@ def parse_blocks(source: str, *, options: ParseOptions | None = None) -> Documen
     """
     if not isinstance(source, str):
         raise TypeError('Markdown source must be a string.')
+    if dialect not in {'commonmark', 'notebook'}:
+        raise ValueError('Unknown Markdown dialect.')
     options = options or ParseOptions()
-    parser = _Parser(source, options)
+    parser = _Parser(source, options, dialect)
     if len(source) > options.max_characters:
         parser.fail('character-limit', 'Markdown character limit exceeded.', 0, len(source))
     document = parser.locate(Document(*parser.blocks(list(_lines(source)))), 0, len(source))
     object.__setattr__(document, 'diagnostics', tuple(parser.diagnostics))
+    object.__setattr__(document, 'dialect', dialect)
     return document

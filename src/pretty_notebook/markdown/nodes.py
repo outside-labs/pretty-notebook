@@ -36,6 +36,7 @@ class Node:
     span: SourceSpan | None = field(default=None, compare=False, repr=False)
     source: str | None = field(default=None, compare=False, repr=False)
     positions: tuple[int, ...] | None = field(default=None, compare=False, repr=False)
+    attributes: tuple[tuple[str, str], ...] = field(default=(), kw_only=True)
 
     def to_markdown(self) -> str:
         return self.source if self.source is not None else self._markdown()
@@ -67,7 +68,7 @@ class Text(Node):
 class Container(Node):
     children: tuple[Node, ...]
 
-    def __init__(self, *children, span=None, source=None, positions=None):
+    def __init__(self, *children, span=None, source=None, positions=None, attributes=()):
         values = tuple(Text(child) if isinstance(child, str) else child for child in children)
         if any(not isinstance(child, Node) for child in values):
             raise TypeError('Children must be Markdown nodes or strings.')
@@ -75,6 +76,7 @@ class Container(Node):
         object.__setattr__(self, 'span', span)
         object.__setattr__(self, 'source', source)
         object.__setattr__(self, 'positions', positions)
+        object.__setattr__(self, 'attributes', tuple(attributes))
 
     def content(self):
         return ''.join(child.to_markdown() for child in self.children)
@@ -101,6 +103,7 @@ class Paragraph(Container):
 @dataclass(frozen=True, init=False)
 class Document(Container):
     diagnostics: tuple[Diagnostic, ...] = ()
+    dialect: str = 'commonmark'
 
     def _markdown(self):
         return '\n\n'.join(child.to_markdown() for child in self.children)
@@ -286,3 +289,105 @@ class SoftBreak(Node):
 class HardBreak(Node):
     def _markdown(self):
         return '  \n'
+
+
+@dataclass(frozen=True, init=False)
+class StrikethroughText(Container):
+    def _markdown(self):
+        return '~~' + self.content() + '~~'
+
+
+@dataclass(frozen=True, init=False)
+class HighlightedText(Container):
+    def _markdown(self):
+        return '==' + self.content() + '=='
+
+
+@dataclass(frozen=True, init=False)
+class TableCell(Container):
+    def _markdown(self):
+        return self.content()
+
+
+@dataclass(frozen=True, init=False)
+class TableRow(Container):
+    def _markdown(self):
+        return '| ' + ' | '.join(child.to_markdown() for child in self.children) + ' |'
+
+
+@dataclass(frozen=True, init=False)
+class Table(Container):
+    alignments: tuple[str | None, ...]
+
+    def __init__(self, header, *rows, alignments=()):
+        if not all(isinstance(row, TableRow) for row in (header, *rows)):
+            raise TypeError('Tables contain TableRow values.')
+        super().__init__(header, *rows)
+        values = tuple(alignments) or (None,) * len(header.children)
+        if len(values) != len(header.children) or any(value not in {None, 'left', 'center', 'right'} for value in values):
+            raise ValueError('Table alignments must match the header width.')
+        object.__setattr__(self, 'alignments', values)
+
+    def _markdown(self):
+        markers = {None: '---', 'left': ':---', 'center': ':---:', 'right': '---:'}
+        lines = [self.children[0].to_markdown(), '| ' + ' | '.join(markers[value] for value in self.alignments) + ' |']
+        return '\n'.join(lines + [row.to_markdown() for row in self.children[1:]])
+
+
+@dataclass(frozen=True, init=False)
+class TaskListItem(ListItem):
+    checked: bool
+
+    def __init__(self, *children, checked=False):
+        if type(checked) is not bool:
+            raise TypeError('Task checked must be a boolean.')
+        super().__init__(*children)
+        object.__setattr__(self, 'checked', checked)
+
+    def _markdown(self):
+        return ('[x] ' if self.checked else '[ ] ') + super()._markdown()
+
+
+@dataclass(frozen=True, init=False)
+class FootnoteDefinition(Document):
+    label: str
+
+    def __init__(self, label, *children):
+        super().__init__(*children)
+        object.__setattr__(self, 'label', label)
+
+    def _markdown(self):
+        return '[^' + self.label + ']: ' + super()._markdown().replace('\n', '\n    ')
+
+
+@dataclass(frozen=True)
+class FootnoteReference(Node):
+    label: str
+
+    def _markdown(self):
+        return '[^' + self.label + ']'
+
+
+@dataclass(frozen=True)
+class ImageEmbed(Node):
+    name: str
+
+    def _markdown(self):
+        return '![[' + self.name + ']]'
+
+
+@dataclass(frozen=True)
+class TagText(Text):
+    pass
+
+
+@dataclass(frozen=True)
+class TableOfContents(Node):
+    def _markdown(self):
+        return '[TOC]'
+
+
+@dataclass(frozen=True, init=False)
+class Mermaid(CodeBlock):
+    def __init__(self, body):
+        super().__init__(body, 'mermaid')

@@ -88,7 +88,7 @@ def test_raw_html_builders_obey_both_renderer_policies():
         assert '<script>' in Document(Paragraph(RawHtml('<script>'))).to_html(renderer=renderer, context=RendererContext(trust='trusted'))
 
 
-@pytest.mark.parametrize('source', ['[label](/target) ' * 2000, 'a `code` ' * 5000, '*word* ' * 5000])
+@pytest.mark.parametrize('source', ['[label](/target) ' * 2000, 'a `code` ' * 5000, '*word* ' * 5000], ids=['links', 'code', 'emphasis'])
 def test_representative_long_inlines(source):
     assert parse(source).to_markdown() == source
 

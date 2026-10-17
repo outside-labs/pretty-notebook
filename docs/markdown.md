@@ -118,3 +118,52 @@ bounds remain literal. Inline work has a budget of 32 steps per source character
 (minimum 2,000); exhausted budgets raise `ParseLimitError`. Node and nesting
 limits apply to inlines as well. Long ordinary text, repeated links/code/emphasis,
 and malformed delimiters have dedicated checks.
+
+## Notebook dialect
+
+`parse_notebook(source)` selects the notebook extensions. It retains the same
+immutable source model; `parse(source)` continues to select CommonMark syntax.
+`render_notebook(source, context=RendererContext(...))` returns a
+`RenderedMarkdown` value with `html`, structured `headings`, distinct `languages`,
+and `diagrams`. Each heading includes its title, level, identifier, and span;
+each Mermaid diagram includes its literal body and span. `NotebookRenderer`
+implements the same renderer protocol for an existing parsed document.
+
+The notebook dialect supports:
+
+- Nested `~~strikethrough~~` and `==highlighted text==`, without transforming code
+  or spaced comparisons such as `x == y == z`.
+- Pipe tables with optional outer pipes, alignment markers, escaped pipes,
+  inline code containing pipes, and padding/truncation to the header width.
+- Nested `- [ ]` and `- [x]` task items with typed checked state and disabled HTML
+  checkboxes.
+- `[^label]` footnote references, indented multi-block definitions, stable
+  numbering, and backlinks for repeated references. Unknown references remain
+  literal.
+- Heading suffix attributes (`{#anchor .class}` or `{: #anchor}`), standalone
+  block attribute lists (`{: .class}`), inline element attributes, and fenced
+  code attributes such as `{.python #sample .extra}`. Attribute values are
+  escaped; event handlers, style and unknown attribute names are not emitted.
+  IDs, classes, titles, language/direction, roles, and `data-*`/`aria-*` names are
+  supported.
+- Heading IDs and `[TOC]`. The renderer and heading metadata use the same anchor
+  allocation, including explicit IDs and `_1`, `_2` suffixes for repeated IDs.
+- Wiki links, heading fragments, labels, image embeds, tags, bare HTTP/HTTPS
+  links, and literal Mermaid fences. Wiki targets are limited to 4,096 characters
+  and exclude square brackets/newlines; footnote labels are limited to 999.
+
+Supply a notebook and source path in the renderer context for graph-based wiki
+resolution, publication routes, prefixes, and image URLs. Resolution shares one
+snapshot per render. Missing/ambiguous or publication-filtered targets become
+literal labels. Standard links retain the external-link icon and attributes.
+`HIDE_COMMIT_TAG` applies to actual tag nodes; code and raw HTML stay opaque.
+
+Notebook soft line breaks preserve the current `nl2br` behavior. Set
+`RendererContext(soft_breaks="newline")` to retain newlines instead. Fenced code
+and Mermaid bodies preserve tabs, indentation, Unicode and trailing newlines;
+HTML escaping is the only rendering transformation of their bodies. The generic
+CommonMark parser retains its specification-defined fence indentation rules.
+
+The direct renderer is available for preview and compatibility checking.
+Production note rendering still uses Python-Markdown until the MD-05 migration
+and dependency-removal gates pass.

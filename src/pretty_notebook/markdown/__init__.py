@@ -23,3 +23,9 @@ from .nodes import Code, HardBreak, RawHtml, ReferenceDefinition, SoftBreak
 from .renderers import TypedRenderer
 
 __all__ += ['parse', 'Code', 'HardBreak', 'RawHtml', 'ReferenceDefinition', 'SoftBreak', 'TypedRenderer']
+
+from .dialect import parse_notebook
+from .nodes import (FootnoteDefinition, FootnoteReference, HighlightedText, ImageEmbed, Mermaid, StrikethroughText, Table, TableCell, TableOfContents, TableRow, TagText, TaskListItem)
+from .renderers import (DiagramInfo, HeadingInfo, NotebookRenderer, RenderedMarkdown, render_notebook)
+
+__all__ += ['parse_notebook', 'FootnoteDefinition', 'FootnoteReference', 'HighlightedText', 'ImageEmbed', 'Mermaid', 'StrikethroughText', 'Table', 'TableCell', 'TableOfContents', 'TableRow', 'TagText', 'TaskListItem', 'DiagramInfo', 'HeadingInfo', 'NotebookRenderer', 'RenderedMarkdown', 'render_notebook']
