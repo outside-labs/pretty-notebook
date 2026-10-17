@@ -125,6 +125,7 @@ def test_wiki_resolution_prefix_fragments_labels_and_images_use_notebook(noteboo
     '    [[Target]] #public ~~strike~~ ==mark== https://example.com\n',
     '```mermaid\n[[Target]] #public ~~strike~~ ==mark== https://example.com\n```',
     '<pre>[[Target]] #public ~~strike~~ ==mark== https://example.com</pre>',
+    'Before <code>[[Target]] #public ~~strike~~ ==mark== https://example.com</code> after',
 ])
 def test_extensions_leave_protected_text_opaque(literal, notebook):
     result = render_notebook(literal, context=RendererContext(notebook, 'Source.md', trust='trusted'))
@@ -139,3 +140,21 @@ def test_newlines_and_hidden_commit_tags_follow_the_notebook_policy(notebook):
     assert '<br />\n' in result.html and '<code>#public</code>' in result.html
     assert result.html.count('#public') == 1 and '#topic' in result.html
     assert '<br' not in render_notebook(source, context=RendererContext(soft_breaks='newline')).html
+
+
+def test_attribute_titles_override_existing_titles_once():
+    rendered = render_notebook('[x](/safe "old"){: title="new"} ![x](/image "old"){: title="new"}').html
+    assert rendered.count('title="new"') == 2
+    assert 'title="old"' not in rendered
+
+
+def test_duplicate_footnote_definitions_use_the_first_body():
+    rendered = render_notebook('Text[^a].\n\n[^a]: first\n\n[^a]: second\n').html
+    assert '<p>first' in rendered and '<p>second' not in rendered
+
+
+def test_opaque_html_code_keeps_visible_heading_text_for_anchors():
+    result = render_notebook('# Before <code>[[literal]]</code> after\n', context=RendererContext(trust='trusted'))
+    assert result.headings[0].title == 'Before [[literal]] after'
+    assert result.headings[0].identifier == 'before-literal-after'
+    assert '<code>[[literal]]</code>' in result.html

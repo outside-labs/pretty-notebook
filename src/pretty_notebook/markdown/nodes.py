@@ -45,8 +45,8 @@ class Node:
         raise NotImplementedError
 
     def to_html(self, *, renderer=None, context=None) -> str:
-        from .renderers import PythonMarkdownRenderer, RendererContext, TypedRenderer
-        default = TypedRenderer() if self.source is not None else PythonMarkdownRenderer()
+        from .renderers import RendererContext, TypedRenderer
+        default = TypedRenderer()
         return (renderer or default).render(self, context or RendererContext())
 
 

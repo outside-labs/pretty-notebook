@@ -17,6 +17,7 @@ from .nodes import (
 )
 from .parser import Diagnostic, ParseLimitError, ParseOptions, SourceMap, parse_blocks
 
+_OPAQUE_START = re.compile(r'<(code|pre|script|style|textarea)(?:[ \t>])', re.I)
 _WIKI = re.compile(r'(!?)\[\[([^][\r\n]{1,4096})\]\]')
 _FOOTNOTE = re.compile(r'\[\^([^][\s]{1,999})\]')
 _ATTRIBUTES = re.compile(r'\{:[^{}\n]*\}')
@@ -363,7 +364,12 @@ class _Inline:
             elif char == '<':
                 auto, email = _URI.match(text, index), _EMAIL.match(text, index)
                 raw = _HTML.match(text, index)
-                if auto or email:
+                opaque = _OPAQUE_START.match(text, index) if self.dialect == 'notebook' and raw else None
+                if opaque:
+                    end_tag = re.compile(r'</' + opaque[1] + r'\s*>', re.I).search(text, raw.end())
+                    index = end_tag.end() if end_tag else size
+                    tokens.append(_Token(self.make(RawHtml(text[begin:index]), begin, index), begin, index))
+                elif auto or email:
                     match = auto or email
                     url = match[1] if auto else 'mailto:' + match[1]
                     label = self.make(Text(match[1]), index + 1, match.end() - 1)
@@ -438,8 +444,22 @@ class _Inline:
 
 
 def plain_text(nodes):
-    return ''.join((node.target.partition('|')[2].strip() or node.target.partition('|')[0].strip().replace('#', ' > ')) if isinstance(node, NotebookLink) else node.alt if isinstance(node, Image) else node.value if isinstance(node, (Text, Code)) else '\n' if isinstance(node, (SoftBreak, HardBreak))
-                   else plain_text(getattr(node, 'children', ())) for node in nodes)
+    parts = []
+    for node in nodes:
+        if isinstance(node, NotebookLink):
+            address, _, label = node.target.partition('|')
+            parts.append(label.strip() or address.strip().replace('#', ' > '))
+        elif isinstance(node, RawHtml):
+            parts.append(html.unescape(re.sub(r'<[^>]*>', '', node.value)))
+        elif isinstance(node, Image):
+            parts.append(node.alt)
+        elif isinstance(node, (Text, Code)):
+            parts.append(node.value)
+        elif isinstance(node, (SoftBreak, HardBreak)):
+            parts.append('\n')
+        else:
+            parts.append(plain_text(getattr(node, 'children', ())))
+    return ''.join(parts)
 
 
 def parse(source: str, *, options: ParseOptions | None = None, dialect='commonmark'):
@@ -456,7 +476,10 @@ def parse(source: str, *, options: ParseOptions | None = None, dialect='commonma
     for node in nodes:
         if isinstance(node, ReferenceDefinition):
             references.setdefault(normalize_label(node.label), node)
-    footnotes = {normalize_label(node.label): node for node in nodes if isinstance(node, FootnoteDefinition)}
+    footnotes = {}
+    for node in nodes:
+        if isinstance(node, FootnoteDefinition):
+            footnotes.setdefault(normalize_label(node.label), node)
     def visit(node):
         if dialect == 'notebook' and isinstance(node, Heading) and node.children:
             from dataclasses import replace
