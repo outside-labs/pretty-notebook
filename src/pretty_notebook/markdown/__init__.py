@@ -1,9 +1,9 @@
 """Typed Markdown builders and explicit renderer contexts."""
 
 from .nodes import (
-    BoldText, BulletList, CodeBlock, Document, Heading, Image, ItalicText,
+    BlockQuote, BoldText, BulletList, CodeBlock, Document, Heading, Image, ItalicText,
     Link, ListItem, MarkdownText, Node, NotebookLink, OrderedList, Paragraph,
-    Text, from_component,
+    Text, ThematicBreak, from_component,
 )
 from .renderers import PythonMarkdownRenderer, Renderer, RendererContext
 
@@ -13,3 +13,7 @@ __all__ = [
     'OrderedList', 'Paragraph', 'Text', 'from_component',
     'PythonMarkdownRenderer', 'Renderer', 'RendererContext',
 ]
+
+from .parser import Diagnostic, ParseLimitError, ParseOptions, SourceSpan, parse_blocks
+
+__all__ += ["BlockQuote", "ThematicBreak", "Diagnostic", "ParseLimitError", "ParseOptions", "SourceSpan", "parse_blocks"]
