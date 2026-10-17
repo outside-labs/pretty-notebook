@@ -6,6 +6,10 @@ import re
 from dataclasses import dataclass, field
 from html import escape, unescape
 from urllib.parse import quote, unquote, urlsplit
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .parser import Diagnostic, SourceSpan
 
 
 def literal(value: str) -> str:
@@ -29,7 +33,7 @@ def safe_url(value: str) -> str:
 class Node:
     """An immutable value with optional exact original source and location."""
 
-    span: object | None = field(default=None, compare=False, repr=False)
+    span: SourceSpan | None = field(default=None, compare=False, repr=False)
     source: str | None = field(default=None, compare=False, repr=False)
     positions: tuple[int, ...] | None = field(default=None, compare=False, repr=False)
 
@@ -40,8 +44,9 @@ class Node:
         raise NotImplementedError
 
     def to_html(self, *, renderer=None, context=None) -> str:
-        from .renderers import PythonMarkdownRenderer, RendererContext
-        return (renderer or PythonMarkdownRenderer()).render(self, context or RendererContext())
+        from .renderers import PythonMarkdownRenderer, RendererContext, TypedRenderer
+        default = TypedRenderer() if self.source is not None else PythonMarkdownRenderer()
+        return (renderer or default).render(self, context or RendererContext())
 
 
 @dataclass(frozen=True)
@@ -95,7 +100,7 @@ class Paragraph(Container):
 
 @dataclass(frozen=True, init=False)
 class Document(Container):
-    diagnostics: tuple = ()
+    diagnostics: tuple[Diagnostic, ...] = ()
 
     def _markdown(self):
         return '\n\n'.join(child.to_markdown() for child in self.children)
@@ -258,3 +263,26 @@ class ReferenceDefinition(Node):
 
     def _markdown(self):
         return '[' + self.label + ']: ' + self.destination
+
+
+@dataclass(frozen=True)
+class Code(Node):
+    value: str
+
+    def _markdown(self):
+        longest = max((len(m[0]) for m in re.finditer(r'`+', self.value)), default=0)
+        fence = '`' * (longest + 1)
+        pad = ' ' if self.value.startswith(('`', ' ')) or self.value.endswith(('`', ' ')) else ''
+        return fence + pad + self.value + pad + fence
+
+
+@dataclass(frozen=True)
+class SoftBreak(Node):
+    def _markdown(self):
+        return '\n'
+
+
+@dataclass(frozen=True)
+class HardBreak(Node):
+    def _markdown(self):
+        return '  \n'

@@ -17,3 +17,9 @@ __all__ = [
 from .parser import Diagnostic, ParseLimitError, ParseOptions, SourceSpan, parse_blocks
 
 __all__ += ["BlockQuote", "ThematicBreak", "Diagnostic", "ParseLimitError", "ParseOptions", "SourceSpan", "parse_blocks"]
+
+from .inlines import parse
+from .nodes import Code, HardBreak, RawHtml, ReferenceDefinition, SoftBreak
+from .renderers import TypedRenderer
+
+__all__ += ['parse', 'Code', 'HardBreak', 'RawHtml', 'ReferenceDefinition', 'SoftBreak', 'TypedRenderer']
