@@ -6,8 +6,12 @@ import pytest
 from pretty_notebook import Notebook
 
 
-@pytest.fixture
-def notebook(monkeypatch, tmp_path):
+@pytest.fixture(params=['legacy', 'typed'])
+def notebook(monkeypatch, tmp_path, request):
+	if request.param == 'typed':
+		from pretty_notebook._internal import rendering
+		from pretty_notebook.markdown import render_notebook, RendererContext
+		monkeypatch.setattr(rendering, 'render_note', lambda nb, note: render_notebook(note.current_md, context=RendererContext(nb, note.source_path, trust='trusted')).html)
 	monkeypatch.setenv("NOTE_PATH", str(tmp_path))
 	monkeypatch.setenv("PNBP_SETTINGS", "off")
 	(tmp_path / "other.md").write_text("Other.\n", encoding="utf-8")

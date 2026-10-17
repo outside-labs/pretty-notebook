@@ -12,9 +12,16 @@ from dataclasses import dataclass
 from .nodes import (
     BoldText, Code, Container, HardBreak, Heading, Image, ItalicText, Link,
     Paragraph, RawHtml, ReferenceDefinition, SoftBreak, Text,
+    FootnoteDefinition, FootnoteReference, HighlightedText, ImageEmbed,
+    NotebookLink, StrikethroughText, TableCell, TagText,
 )
 from .parser import Diagnostic, ParseLimitError, ParseOptions, SourceMap, parse_blocks
 
+_WIKI = re.compile(r'(!?)\[\[([^][\r\n]{1,4096})\]\]')
+_FOOTNOTE = re.compile(r'\[\^([^][\s]{1,999})\]')
+_ATTRIBUTES = re.compile(r'\{:[^{}\n]*\}')
+_NAKED = re.compile(r'https?://[^\s<>\]\*]+')
+_TAG = re.compile(r'#[A-Za-z]+(?![\w-])')
 _BACKTICKS = re.compile(r'`+')
 _LABEL = re.compile(r'\[((?:\\.|[^\[\]\\]){0,999})\]')
 _ENTITY = re.compile(r'&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});')
@@ -166,6 +173,11 @@ class _Token:
     depth: int = 0
 
 
+@dataclass(frozen=True)
+class _AttributeMarker(Text):
+    pass
+
+
 class _Budget:
     def __init__(self, source, options, count):
         self.mapping, self.options = SourceMap(source), options
@@ -181,9 +193,10 @@ class _Budget:
 
 
 class _Inline:
-    def __init__(self, text, positions, budget, references):
+    def __init__(self, text, positions, budget, references, dialect='commonmark', footnotes=None):
         self.text, self.positions = text, positions
         self.budget, self.references = budget, references
+        self.dialect, self.footnotes = dialect, footnotes or {}
         self.runs = {}
         for match in re.finditer(r'`+', text):
             self.runs.setdefault(len(match[0]), []).append((match.start(), match.end()))
@@ -237,8 +250,8 @@ class _Inline:
             while opener is not None and opener is not bottom:
                 self.budget.spend()
                 left, right = opener.end - opener.start, closer.end - closer.start
-                odd = (opener.can_close or closer.can_open) and (left + right) % 3 == 0 and (left % 3 or right % 3)
-                if opener.marker == closer.marker and opener.can_open and not odd:
+                odd = opener.marker in '*_' and (opener.can_close or closer.can_open) and (left + right) % 3 == 0 and (left % 3 or right % 3)
+                if opener.marker == closer.marker and opener.can_open and not odd and (opener.marker in '*_' or min(left, right) >= 2):
                     break
                 opener = opener.before
             if opener is None or opener is bottom:
@@ -254,7 +267,8 @@ class _Inline:
                 cursor = cursor.following
             if depth + 1 > self.budget.options.max_nesting:
                 self.budget.fail('nesting-limit', 'Markdown inline nesting limit exceeded.')
-            node = self.make((BoldText if count == 2 else ItalicText)(*children), opener.end - count, closer.start + count)
+            kind = StrikethroughText if opener.marker == '~' else HighlightedText if opener.marker == '=' else BoldText if count == 2 else ItalicText
+            node = self.make(kind(*children), opener.end - count, closer.start + count)
             middle = _Token(node, opener.end - count, closer.start + count, previous=opener, following=closer, depth=depth + 1)
             opener.following, closer.previous = middle, middle
             opener.end -= count
@@ -289,7 +303,30 @@ class _Inline:
         while index < size:
             self.budget.spend()
             begin, char = index, text[index]
-            if char == '\\' and index + 1 < size and (text[index + 1] in string.punctuation or text[index + 1] == '\n'):
+            if self.dialect == 'notebook' and (wiki := _WIKI.match(text, index)):
+                index = wiki.end()
+                node = ImageEmbed(wiki[2].strip()) if wiki[1] else NotebookLink(wiki[2])
+                tokens.append(_Token(self.make(node, begin, index), begin, index))
+            elif self.dialect == 'notebook' and (footnote := _FOOTNOTE.match(text, index)) and normalize_label(footnote[1]) in self.footnotes:
+                index = footnote.end()
+                node = FootnoteReference(self.footnotes[normalize_label(footnote[1])].label)
+                tokens.append(_Token(self.make(node, begin, index), begin, index))
+            elif self.dialect == 'notebook' and (attrs := _ATTRIBUTES.match(text, index)):
+                index = attrs.end()
+                tokens.append(_Token(self.make(_AttributeMarker(attrs[0]), begin, index), begin, index))
+            elif self.dialect == 'notebook' and char == '#' and (tag := _TAG.match(text, index)) and (index == 0 or not re.match(r"[\\/)>\w']", text[index - 1])):
+                index = tag.end()
+                tokens.append(_Token(self.make(TagText(tag[0]), begin, index), begin, index))
+            elif self.dialect == 'notebook' and not brackets and (bare := _NAKED.match(text, index)):
+                value = bare[0].rstrip('.,;')
+                excess = max(0, value.count(')') - value.count('('))
+                trim = min(excess, len(value) - len(value.rstrip(')')))
+                if trim:
+                    value = value[:-trim]
+                index += len(value)
+                label = self.make(Text(value), begin, index)
+                tokens.append(_Token(self.make(self.link(value, (label,), None, False), begin, index), begin, index))
+            elif char == '\\' and index + 1 < size and (text[index + 1] in string.punctuation or text[index + 1] == '\n'):
                 index += 2
                 node = HardBreak() if text[index - 1] == '\n' else Text(text[index - 1])
                 tokens.append(_Token(self.make(node, begin, index), begin, index))
@@ -374,7 +411,7 @@ class _Inline:
                                 bracket[4] = False
                 else:
                     tokens.append(self.token(']', begin, index))
-            elif char in '*_':
+            elif char in ('*_~=' if self.dialect == 'notebook' else '*_'):
                 index += 1
                 while index < size and text[index] == char:
                     index += 1
@@ -389,7 +426,7 @@ class _Inline:
                 tokens.append(self.token(text[begin:index], begin, index, marker=char, can_open=can_open, can_close=can_close))
             else:
                 index += 1
-                while index < size and text[index] not in '\\`&\n<[]!*_':
+                while index < size and text[index] not in ('\\`&\n<[]!*_~=#{' if self.dialect == 'notebook' else '\\`&\n<[]!*_') and not (self.dialect == 'notebook' and text.startswith(('http://', 'https://'), index)):
                     index += 1
                 tokens.append(self.token(text[begin:index], begin, index))
         if tokens and isinstance(tokens[-1].node, Text) and tokens[-1].node.value.endswith(' '):
@@ -401,14 +438,14 @@ class _Inline:
 
 
 def plain_text(nodes):
-    return ''.join(node.alt if isinstance(node, Image) else node.value if isinstance(node, (Text, Code)) else '\n' if isinstance(node, (SoftBreak, HardBreak))
+    return ''.join((node.target.partition('|')[2].strip() or node.target.partition('|')[0].strip().replace('#', ' > ')) if isinstance(node, NotebookLink) else node.alt if isinstance(node, Image) else node.value if isinstance(node, (Text, Code)) else '\n' if isinstance(node, (SoftBreak, HardBreak))
                    else plain_text(getattr(node, 'children', ())) for node in nodes)
 
 
-def parse(source: str, *, options: ParseOptions | None = None):
+def parse(source: str, *, options: ParseOptions | None = None, dialect='commonmark'):
     """Parse blocks and nested inlines, preserving every original source slice."""
     options = options or ParseOptions()
-    document = parse_blocks(source, options=options)
+    document = parse_blocks(source, options=options, dialect=dialect)
     def walk(node):
         yield node
         for child in getattr(node, 'children', ()):
@@ -419,12 +456,21 @@ def parse(source: str, *, options: ParseOptions | None = None):
     for node in nodes:
         if isinstance(node, ReferenceDefinition):
             references.setdefault(normalize_label(node.label), node)
+    footnotes = {normalize_label(node.label): node for node in nodes if isinstance(node, FootnoteDefinition)}
     def visit(node):
-        if isinstance(node, (Paragraph, Heading)):
+        if dialect == 'notebook' and isinstance(node, Heading) and node.children:
+            from dataclasses import replace
+            from .dialect import heading_attributes
+            child = node.children[-1]
+            value, attrs = heading_attributes(child.value)
+            if attrs:
+                object.__setattr__(node, 'attributes', attrs)
+                object.__setattr__(node, 'children', (*node.children[:-1], replace(child, value=value, positions=child.positions[:len(value)])))
+        if isinstance(node, (Paragraph, Heading, TableCell)):
             children = []
             for child in node.children:
                 if isinstance(child, Text):
-                    children.extend(_Inline(child.value, child.positions or (), budget, references).parse())
+                    children.extend(_Inline(child.value, child.positions or (), budget, references, dialect, footnotes).parse())
                 else:
                     children.append(child)
             object.__setattr__(node, 'children', tuple(children))
@@ -432,4 +478,21 @@ def parse(source: str, *, options: ParseOptions | None = None):
             for child in node.children:
                 visit(child)
     visit(document)
+    if dialect == 'notebook':
+        from .dialect import attributes
+        def attach(node):
+            if not isinstance(node, Container):
+                return
+            children = []
+            for child in node.children:
+                attach(child)
+                if isinstance(child, _AttributeMarker):
+                    attrs = attributes(child.value)
+                    if attrs is not None and children and isinstance(children[-1], (Container, Image, Code)):
+                        object.__setattr__(children[-1], 'attributes', attrs)
+                        continue
+                    child = Text(child.value, span=child.span, source=child.source, positions=child.positions)
+                children.append(child)
+            object.__setattr__(node, 'children', tuple(children))
+        attach(document)
     return document
