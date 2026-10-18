@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sqlite3
 
-MIGRATION_NAMES = {1: 'base-schema', 2: 'publication-catalog'}
+MIGRATION_NAMES = {1: 'base-schema', 2: 'publication-catalog', 3: 'scoped-permissions'}
 CURRENT_VERSION = max(MIGRATION_NAMES)
 BASE_COLUMNS = {
     'user': {'id', 'username', 'password_hash', 'tok_uuid'},
@@ -17,6 +17,12 @@ CATALOG_COLUMNS = {
     'pnbp_notebooks': {'slot', 'id'},
     'pnbp_notes': {'id', 'notebook_id', 'canonical_route', 'aliases', 'title', 'visibility', 'current_revision'},
     'pnbp_revisions': {'note_id', 'revision', 'body_hash', 'source_hash', 'rendered_hash', 'renderer_fingerprint', 'feature_flags', 'published_at'},
+}
+
+PERMISSION_COLUMNS = {
+    'pnbp_roles': {'user_id', 'role'},
+    'pnbp_grants': {'user_id', 'notebook', 'permission'},
+    'pnbp_credentials': {'id', 'user_id', 'digest', 'generation', 'scopes', 'notebook', 'expires_at'},
 }
 
 
@@ -53,7 +59,7 @@ def inspect_web_state(root, *, allow_new=False, allow_pending=False):
                 version = len(history)
             if version != CURRENT_VERSION and not allow_pending:
                 raise ValueError('State schema does not match this application; use matching code and a verified backup.')
-            required = {**BASE_COLUMNS, **(CATALOG_COLUMNS if version >= 2 else {})}
+            required = {**BASE_COLUMNS, **(CATALOG_COLUMNS if version >= 2 else {}), **(PERMISSION_COLUMNS if version >= 3 else {})}
             for table, columns in required.items():
                 found = {row[1] for row in connection.execute(f'PRAGMA table_info("{table}")')}
                 if not columns <= found:

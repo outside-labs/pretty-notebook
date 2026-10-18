@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from tortoise import fields
 from tortoise.models import Model
 
-from .auth_api import get_current_user
+from .permissions import require_permission
 
 
 router = APIRouter()
@@ -24,7 +24,7 @@ async def save_submission(form_name: str, payload: dict[str, str]) -> None:
 
 @router.get(
     "/api/forms/{form_name}/submissions",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_permission("inbox"))],
 )
 async def list_submissions(
     form_name: str,

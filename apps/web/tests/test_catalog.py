@@ -1,3 +1,4 @@
+from pretty_notebook._internal.web_state import CURRENT_VERSION
 import hashlib
 import json
 import os
@@ -163,9 +164,9 @@ def test_version_one_database_upgrades_with_backup_and_legacy_import(tmp_path, w
     (web_storage.pages / "legacy.html").write_text("Legacy survives")
     with TestClient(create_app(db_url=f"sqlite://{database}")) as client:
         report = client.app.state.schema_migration
-        assert report["version"] == 2 and report["backup_path"]
+        assert report["version"] == CURRENT_VERSION and report["backup_path"]
         assert "Legacy survives" in client.get("/legacy").text
-        assert [row["version"] for row in rows(client, "SELECT version FROM pnbp_schema_migrations ORDER BY version")] == [1, 2]
+        assert [row["version"] for row in rows(client, "SELECT version FROM pnbp_schema_migrations ORDER BY version")] == list(range(1, CURRENT_VERSION + 1))
     with closing(sqlite3.connect(report["backup_path"])) as backup:
         assert backup.execute("SELECT version FROM pnbp_schema_migrations").fetchall() == [(1,)]
 

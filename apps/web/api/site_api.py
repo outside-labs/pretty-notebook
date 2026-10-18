@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 
 from .atomic_io import atomic_write_bytes
-from .auth_api import get_current_user
+from .permissions import require_permission
 from .png import MAX_FAVICON_BYTES, validate_png
 from .layout_api import get_layout_content
 
@@ -18,10 +18,8 @@ router = APIRouter()
 VERSION = re.compile(r"[a-f0-9]{64}\Z")
 
 
-async def get_site_manager(user=Depends(get_current_user)):
-    """Keep site-wide identity management with the initial site owner."""
-    if user.id != 1:
-        raise HTTPException(403, "Site management requires the owner account.")
+async def get_site_manager(user=Depends(require_permission("site"))):
+    """Require an explicit site administration permission."""
     return user
 
 

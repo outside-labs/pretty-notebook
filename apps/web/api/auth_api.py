@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, field_validator
 from tortoise import connections, fields
 from tortoise.contrib.pydantic import pydantic_model_creator
 from tortoise.models import Model
+from tortoise.transactions import in_transaction
 
 router = APIRouter()
 
@@ -116,12 +117,14 @@ def _require_bootstrap_token(request: Request) -> None:
         )
 
 
-async def _save_user(user: UserInput) -> User_Pydantic:
+async def _save_user(user: UserInput, *, role='reader') -> User_Pydantic:
     user_obj = User(
         username=user.username,
         password_hash=bcrypt.hash(user.password_hash),
     )
-    await user_obj.save()
+    async with in_transaction() as connection:
+        await user_obj.save(using_db=connection)
+        await connection.execute_query('INSERT INTO pnbp_roles VALUES (?,?)', [user_obj.id, role])
     return await User_Pydantic.from_tortoise_orm(user_obj)
 
 
@@ -140,9 +143,9 @@ async def create_user(
                     detail="Cannot access.",
                 )
             _require_bootstrap_token(request)
-            return await _save_user(user)
+            return await _save_user(user, role='owner')
 
-    if curr_user.id != 1 or not await User.filter(id=1).exists():
+    if curr_user.role != 'owner' or 'admin' not in curr_user.scopes:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not allowed.",
@@ -213,6 +216,9 @@ def unauthorized(detail: str) -> HTTPException:
 
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+    from .permissions import authenticate_credential, principal_for
+    if token.startswith('pnbp_'):
+        return await authenticate_credential(token)
     try:
         payload = jwt.decode(
             token,
@@ -237,12 +243,12 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     if not secrets.compare_digest(token_id, user.tok_uuid):
         raise unauthorized("Token revoked or superseded")
 
-    return await User_Pydantic.from_tortoise_orm(user)
+    return await principal_for(user)
 
 
 @router.get("/api/users/me", response_model=User_Pydantic)
 async def get_user(user: Annotated[User_Pydantic, Depends(get_current_user)]):
-    return user
+    return {"id": user.id, "username": user.username}
 
 
 @router.post("/api/users/me", response_model=User_Pydantic)
@@ -250,9 +256,11 @@ async def reset_password(
     password: PasswordInput,
     user: Annotated[User_Pydantic, Depends(get_current_user)],
 ):
+    from .permissions import authorize
     orm_user = await User.get_or_none(id=user.id)
     if orm_user is None:
         raise unauthorized("Could not validate credentials")
+    await authorize(user, 'account')
 
     orm_user.password_hash = bcrypt.hash(password.password_hash)
     orm_user.tok_uuid = secrets.token_urlsafe(32)

@@ -6,6 +6,9 @@ accepting requests. It no longer generates the current ORM schema on every
 start. Migration version 1 establishes the supported account and contact inbox
 tables and records the baseline in `pnbp_schema_migrations`.
 Version 2 creates the publication catalog and its revision/head constraints.
+Version 3 adds explicit roles, notebook grants and hashed script credentials,
+while preserving account-token revocation state. The original owner remains
+a site owner; existing other accounts receive editor grants on `default` only.
 
 Existing 0.9 tables are retained. Account IDs, password hashes, token revocation
 state, inbox payloads/timestamps, and SQLite sequence counters are preserved.

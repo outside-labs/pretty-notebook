@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from web_config import IMAGES_PATH, PAGES_PATH
 
 from .atomic_io import atomic_write_bytes
-from .auth_api import get_current_user
+from .permissions import require_permission
 from pretty_notebook._internal.routes import validate_route
 from .catalog import RouteConflict
 from .catalog import publication_body as publication_body
@@ -85,7 +85,7 @@ async def add_publishment(name: str, content: str, *, store, **metadata) -> Publ
     name="add_pub",
     status_code=201,
     response_model=Publishment,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_permission("publish"))],
 )  # if ok status_code 200 -> 201, if not, it's handled in the ValidationError
 async def publishment_post(pub_submittal: PublicationInput, request: Request):
     """Store a publication."""
@@ -95,7 +95,7 @@ async def publishment_post(pub_submittal: PublicationInput, request: Request):
     return await add_publishment(n, c, store=request.app.state.publications, title=pub_submittal.title, aliases=pub_submittal.aliases, previous_name=pub_submittal.previous_name)
 
 
-@router.post("/api/routes/preview", dependencies=[Depends(get_current_user)])
+@router.post("/api/routes/preview", dependencies=[Depends(require_permission("publish"))])
 async def routes_preview(request: Request, claims: Annotated[list[RouteClaim], fastapi.Body(max_length=200)]):
     return await request.app.state.publications.preview_routes([claim.model_dump() for claim in claims])
 
@@ -127,7 +127,7 @@ def image_path(filename: str | None) -> Path:
     "/api/image",
     name="add_img",
     status_code=201,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_permission("publish"))],
 )
 async def image_post(request: Request, file: Annotated[UploadFile, File(...)]):
     """Validate and atomically store a bounded image upload."""
@@ -152,13 +152,13 @@ async def read_image_upload(file):
     return target, content
 
 
-@router.get("/api/publishments", dependencies=[Depends(get_current_user)])
+@router.get("/api/publishments", dependencies=[Depends(require_permission("publish"))])
 async def publishments_get(request: Request) -> list:
     """Publishments Get"""
     return await request.app.state.publications.inventory()
 
 
-@router.get("/api/images", dependencies=[Depends(get_current_user)])
+@router.get("/api/images", dependencies=[Depends(require_permission("publish"))])
 async def images_get() -> list:
     """Images Get"""
     img_names = sorted(Path.iterdir(IMG_PATH), key=lambda path: path.name)
@@ -174,7 +174,7 @@ async def images_get() -> list:
     return img_data
 
 
-@router.delete("/api/publishment/{pub_name:path}", dependencies=[Depends(get_current_user)])
+@router.delete("/api/publishment/{pub_name:path}", dependencies=[Depends(require_permission("publish"))])
 async def publishment_delete(pub_name: str, request: Request):
     """Publishment Delete"""
     supplied = Path(pub_name)

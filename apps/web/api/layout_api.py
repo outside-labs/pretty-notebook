@@ -12,7 +12,7 @@ from web_config import SETTINGS_PATH
 from pretty_notebook.appearance import validate_appearance
 
 from .atomic_io import atomic_write_text
-from .auth_api import get_current_user
+from .permissions import require_permission
 
 router = fastapi.APIRouter()
 WEB_SETTINGS_PATH = SETTINGS_PATH
@@ -155,7 +155,7 @@ async def update_layout(
     name="update_lout",
     status_code=201,
     response_model=PNBPWebLayout,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_permission("site"))],
 )
 async def layout_post(lout_in: PNBPWebLayout, request: Request):
     """Post Layout"""

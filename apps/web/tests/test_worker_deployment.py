@@ -123,7 +123,7 @@ def test_four_workers_coordinate_startup_claims_and_checked_writes(tmp_path, leg
         all_workers_read(base, f'Winner {winner}')
         if legacy: assert 'Legacy survives' in requests.get(base + '/legacy', timeout=5).text
         with closing(sqlite3.connect(database)) as connection:
-            assert connection.execute('SELECT COUNT(*) FROM pnbp_schema_migrations').fetchone()[0] == 2
+            assert connection.execute('SELECT COUNT(*) FROM pnbp_schema_migrations').fetchone()[0] == schema.CURRENT_VERSION
             assert connection.execute("SELECT current_revision FROM pnbp_notes WHERE canonical_route='/shared'").fetchone()[0] == 2
             assert connection.execute('SELECT COUNT(*) FROM user').fetchone()[0] == 1
         migrations = sorted((state / 'migration-backups').glob('*')) if legacy else []

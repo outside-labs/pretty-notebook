@@ -383,3 +383,24 @@ script, style, or font requests to external services.
 
 See the [web coverage audit](web-coverage.md) for measured statement/branch
 coverage, residual paths, and the distinction between coverage and support.
+
+## Roles and script credentials
+
+Site owners manage accounts, layout, identity and the inbox. Editors receive
+explicit `read`, `publish` and `logs` grants for individual notebooks. Readers
+start without grants. Inbox operators have inbox access without publication or
+site administration. New accounts start as readers; owners assign roles with
+`PUT /api/users/{id}/role` and replace notebook grants with
+`PUT /api/users/{id}/grants` (`notebook`, `permissions`). Removing a grant takes
+effect on the next request. At least one site owner must remain.
+
+Upgrading existing state assigns the original account the owner role and other
+existing accounts editor grants for the `default` notebook. Existing credentials
+retain their revocation state. Review those legacy grants before sharing a site.
+
+`POST /api/credentials` accepts `scopes`, `notebook` (default `default`) and
+`lifetime_days` (1–90). It returns a script token once; only its hash is stored.
+Scripts cannot exceed their account's current role/grants. List credential IDs
+with `GET /api/credentials` and revoke with `DELETE /api/credentials/{id}`.
+Password changes and replacement account tokens invalidate existing scripts.
+Use `X-PNBP-Notebook` to select a notebook; absent headers select `default`.

@@ -2,6 +2,7 @@
 
 import ast
 from contextlib import closing
+from pretty_notebook._internal.web_state import MIGRATION_NAMES
 import hashlib
 from pathlib import Path
 import sqlite3
@@ -30,11 +31,11 @@ def create_state(root):
     (root / 'web-settings.json').write_text('{"TITLE":"Synthetic site"}')
     (root / 'site.lock').write_bytes(b'')
     with closing(sqlite3.connect(root / 'db.sqlite3')) as connection:
-        for source, name in (('schema.py', 'BASE_SCHEMA'), ('catalog.py', 'CATALOG_SCHEMA')):
+        for source, name in (('schema.py', 'BASE_SCHEMA'), ('catalog.py', 'CATALOG_SCHEMA'), ('permissions.py', 'PERMISSION_SCHEMA')):
             for statement in constant(ROOT / 'apps/web/api' / source, name):
                 connection.execute(statement)
         connection.execute(constant(ROOT / 'apps/web/api/schema.py', 'HISTORY_SCHEMA'))
-        connection.executemany('INSERT INTO pnbp_schema_migrations (version,name,applied_at) VALUES (?, ?, ?)', [(1, 'base-schema', '2026-01-01'), (2, 'publication-catalog', '2026-01-01')])
+        connection.executemany('INSERT INTO pnbp_schema_migrations (version,name,applied_at) VALUES (?, ?, ?)', [(number, name, '2026-01-01') for number, name in MIGRATION_NAMES.items()])
         connection.execute("INSERT INTO user VALUES (1, 'owner', 'synthetic-password-hash', 'synthetic-revocation-uuid')")
         connection.execute("INSERT INTO formsubmission (form_name,payload) VALUES ('contact', '{\"email_message\":\"Synthetic message\"}')")
         connection.execute("INSERT INTO pnbp_notebooks VALUES ('default', 'notebook-id')")
