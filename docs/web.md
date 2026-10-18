@@ -432,3 +432,37 @@ capabilities response additionally advertises `independent_notebooks`.
 
 All content and attachments in this profile are public. Private-reader and
 browser-session support require their separate permission/rendering gates.
+
+## Durable operation logs
+
+`GET /api/logs?limit=100&before=0` returns the selected notebook's newest
+publication, image and pruning operation receipts. It requires a `logs` grant
+and accepts at most 100 rows; pass the oldest returned `id` as `before` to read
+older rows. Script credentials can grant `logs` without publication access.
+
+Receipts contain an event ID, operation correlation UUID, account ID, operation
+type, outcome, HTTP status and UTC timestamps. They contain no note paths,
+titles, Markdown, HTML, image filenames, request bodies, credential values or
+exception messages. Responses include `X-PNBP-Operation-ID`; clients can supply
+a UUID in that header to correlate multiple requests or retries. A correlation
+ID is diagnostic metadata and does not make writes idempotent; checked
+publication ETags still govern retries.
+
+A start receipt is committed before a publication attempt. A logging-start
+failure returns 503 before publication. A completion-receipt failure preserves
+the actual publication response and the existing `started` receipt; it cannot
+turn an already committed publication into a reported failed save. A process
+interruption also leaves `started`, which means completion is unknown and
+requires checking the current inventory. Successful and failed outcomes are
+retained across restart. Each subsequent operation removes receipts older than
+30 days and bounds each notebook to 10,000 rows, including interrupted receipts.
+No webhook delivery is enabled.
+
+The CLI's `pnbp logs` reads local receipts; `pnbp logs --remote` reads the
+selected server notebook. Both accept `--limit` (1–100) and `--before`. Local
+collect commands, `Notebook.save_all_notes()` flushes and actual publication
+attempts record the same redacted lifecycle in the private
+`.pnbp/operations.sqlite3` database. Dry-run publication, empty flushes and log
+reads create no log state. Local logs follow the same retention/count limits;
+local database access follows the notebook filesystem's ownership permissions.
+The compatibility client is also available as `pnbp.commands.logs`.

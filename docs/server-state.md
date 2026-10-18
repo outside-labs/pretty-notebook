@@ -130,3 +130,7 @@ available; newly bootstrapped sites bind their default notebook at owner creatio
 Back up the complete stopped site before upgrading; older application versions
 must use a matching pre-upgrade backup. The upgrade uses SQLite's transactional
 table-rebuild procedure and validates foreign keys before serving traffic.
+
+Version 5 adds notebook-scoped operation receipts. These live in the main
+SQLite database and participate in complete stopped-site backup/restore.
+Application-level receipts remain separate from web-server access logs.

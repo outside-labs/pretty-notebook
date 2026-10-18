@@ -7,7 +7,7 @@ import assets
 import web_config
 from api import auth_api, layout_api, publish_api, publishing_api, schema, catalog, site_api
 from api import forms as forms_api
-from api import search_api, public_index, permissions, notebooks
+from api import search_api, public_index, permissions, notebooks, operation_logs
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.staticfiles import StaticFiles
 from tortoise import connections
@@ -79,6 +79,8 @@ def create_app(
         allowed_hosts=allowed_hosts or web_config.allowed_hosts(),
     )
 
+    app.middleware("http")(operation_logs.audit_request)
+
     @app.middleware("http")
     async def security_headers(request, call_next):
         path = request.url.path.removeprefix(request.scope.get("root_path", ""))
@@ -130,6 +132,7 @@ def create_app(
     app.include_router(auth_api.router)
     app.include_router(permissions.router)
     app.include_router(notebooks.router)
+    app.include_router(operation_logs.router)
     app.include_router(layout_api.router)
     app.include_router(forms_api.router)
     app.include_router(search_api.router)
