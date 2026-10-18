@@ -59,7 +59,7 @@ def negotiate(notebook, mode="auto"):
 
 def renderer_fingerprint(notebook):
     settings = {key: notebook.config.get(key) for key in (
-        "MARKDOWN_BACKEND", "HIDE_COMMIT_TAG", "URL_PREFIX", "ROUTE_MODE", "NOTEBOOK_SLUG", "PUBLICATION_ROUTES",
+        "MARKDOWN_BACKEND", "HIDE_COMMIT_TAG", "URL_PREFIX", "ROUTE_MODE", "NOTEBOOK_SLUG", "SERVER_NOTEBOOK", "PUBLICATION_ROUTES",
     )}
     settings.update(PUB_LNK_ONLY=notebook.PUB_LNK_ONLY, COMMIT_TAG=notebook.COMMIT_TAG, EXCLUDE_TAG=notebook.EXCLUDE_TAG)
     value = {"policy": "revision-2", "pnbp": version("pretty-notebook"),

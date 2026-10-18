@@ -14,6 +14,7 @@ from tortoise.backends.sqlite.client import SqliteClient
 from tortoise.transactions import in_transaction
 from .catalog import CATALOG_SCHEMA
 from .permissions import PERMISSION_SCHEMA
+from .notebooks import OWNERSHIP_SCHEMA
 
 from pretty_notebook._internal.web_state import CURRENT_VERSION, BASE_COLUMNS, CATALOG_COLUMNS, MIGRATION_NAMES, PERMISSION_COLUMNS
 BASE_SCHEMA = (
@@ -30,7 +31,7 @@ BASE_SCHEMA = (
         "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )''',
 )
-MIGRATIONS = {1: (MIGRATION_NAMES[1], BASE_SCHEMA), 2: (MIGRATION_NAMES[2], CATALOG_SCHEMA), 3: (MIGRATION_NAMES[3], PERMISSION_SCHEMA)}
+MIGRATIONS = {1: (MIGRATION_NAMES[1], BASE_SCHEMA), 2: (MIGRATION_NAMES[2], CATALOG_SCHEMA), 3: (MIGRATION_NAMES[3], PERMISSION_SCHEMA), 4: (MIGRATION_NAMES[4], OWNERSHIP_SCHEMA)}
 HISTORY_SCHEMA = '''CREATE TABLE IF NOT EXISTS pnbp_schema_migrations (
     version INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -84,6 +85,8 @@ async def _apply_migration(connection, version):
         await _validate_catalog(connection)
     if version >= 3:
         await _validate_permissions(connection)
+    if version >= 4:
+        await _validate_ownership(connection)
 
 
 async def _validate_catalog(connection):
@@ -100,6 +103,12 @@ async def _validate_permissions(connection):
         rows = await connection.execute_query_dict(f'PRAGMA table_info("{table}")')
         if not required <= {row["name"] for row in rows}:
             raise RuntimeError("Invalid permission schema; restore a verified backup.")
+
+
+async def _validate_ownership(connection):
+    rows = await connection.execute_query_dict("PRAGMA table_info(pnbp_notebooks)")
+    if "owner_id" not in {row["name"] for row in rows}:
+        raise RuntimeError("Invalid notebook ownership schema; restore a verified backup.")
 
 
 async def migrate():
@@ -125,17 +134,29 @@ async def migrate():
         await _validate_base(connection)
         await _validate_catalog(connection)
         await _validate_permissions(connection)
+        await _validate_ownership(connection)
         return {"version": version, "backup_path": None, "backup_sha256": None}
 
     backup_path = backup_hash = None
     if connection.filename != ":memory:" and tables - {"sqlite_sequence"}:
         backup_path, backup_hash = await asyncio.to_thread(_backup, connection.filename, version)
-    async with in_transaction() as transaction:
-        await transaction.execute_query(HISTORY_SCHEMA)
-        for target in range(version + 1, CURRENT_VERSION + 1):
-            await _apply_migration(transaction, target)
-            await transaction.execute_query(
-                "INSERT INTO pnbp_schema_migrations (version, name, applied_at, backup_path, backup_sha256) VALUES (?, ?, ?, ?, ?)",
-                [target, MIGRATIONS[target][0], datetime.now(UTC).isoformat(), backup_path, backup_hash],
-            )
+    # SQLite's table-rebuild procedure disables FK enforcement before BEGIN,
+    # validates every reference before commit, then restores enforcement.
+    # https://www.sqlite.org/lang_altertable.html#making_other_kinds_of_table_schema_changes
+    foreign_keys = await connection.execute_query_dict("PRAGMA foreign_keys")
+    rebuild = version < 4 and bool(foreign_keys[0]['foreign_keys'])
+    if rebuild:
+        await connection.execute_query("PRAGMA foreign_keys=OFF")
+    try:
+        async with in_transaction() as transaction:
+            await transaction.execute_query(HISTORY_SCHEMA)
+            for target in range(version + 1, CURRENT_VERSION + 1):
+                await _apply_migration(transaction, target)
+                await transaction.execute_query(
+                    "INSERT INTO pnbp_schema_migrations (version, name, applied_at, backup_path, backup_sha256) VALUES (?, ?, ?, ?, ?)",
+                    [target, MIGRATIONS[target][0], datetime.now(UTC).isoformat(), backup_path, backup_hash],
+                )
+    finally:
+        if rebuild:
+            await connection.execute_query("PRAGMA foreign_keys=ON")
     return {"version": CURRENT_VERSION, "backup_path": backup_path, "backup_sha256": backup_hash}

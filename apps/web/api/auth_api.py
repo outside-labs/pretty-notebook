@@ -125,6 +125,8 @@ async def _save_user(user: UserInput, *, role='reader') -> User_Pydantic:
     async with in_transaction() as connection:
         await user_obj.save(using_db=connection)
         await connection.execute_query('INSERT INTO pnbp_roles VALUES (?,?)', [user_obj.id, role])
+        if role == 'owner':
+            await connection.execute_query("UPDATE pnbp_notebooks SET owner_id=? WHERE slot='default' AND owner_id IS NULL", [user_obj.id])
     return await User_Pydantic.from_tortoise_orm(user_obj)
 
 

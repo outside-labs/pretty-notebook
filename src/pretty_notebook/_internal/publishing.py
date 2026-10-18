@@ -89,6 +89,8 @@ def write_local_html(notebook):
 def headers(notebook):
 	""" the request headers """
 	headers = {'accept': 'application/json'}
+	if notebook.config.get('SERVER_NOTEBOOK', 'default') != 'default':
+		headers['X-PNBP-Notebook'] = notebook.config['SERVER_NOTEBOOK']
 	if notebook.API_TOKEN:
 		headers['authorization'] = f'Bearer {notebook.API_TOKEN}'
 	return headers

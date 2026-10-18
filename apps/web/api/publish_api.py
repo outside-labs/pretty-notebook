@@ -9,6 +9,7 @@ from web_config import IMAGES_PATH, PAGES_PATH
 
 from .atomic_io import atomic_write_bytes
 from .permissions import require_permission
+from .notebooks import publication_store, image_directory
 from pretty_notebook._internal.routes import validate_route
 from .catalog import RouteConflict
 from .catalog import publication_body as publication_body
@@ -92,15 +93,16 @@ async def publishment_post(pub_submittal: PublicationInput, request: Request):
     n = pub_submittal.name
     c = pub_submittal.content
 
-    return await add_publishment(n, c, store=request.app.state.publications, title=pub_submittal.title, aliases=pub_submittal.aliases, previous_name=pub_submittal.previous_name)
+    return await add_publishment(n, c, store=await publication_store(request), title=pub_submittal.title, aliases=pub_submittal.aliases, previous_name=pub_submittal.previous_name)
 
 
 @router.post("/api/routes/preview", dependencies=[Depends(require_permission("publish"))])
 async def routes_preview(request: Request, claims: Annotated[list[RouteClaim], fastapi.Body(max_length=200)]):
-    return await request.app.state.publications.preview_routes([claim.model_dump() for claim in claims])
+    return await (await publication_store(request)).preview_routes([claim.model_dump() for claim in claims])
 
 
-def image_path(filename: str | None) -> Path:
+def image_path(filename: str | None, directory=None) -> Path:
+    directory = IMG_PATH if directory is None else directory
     """ensures valid filename and file type of images"""
     if not filename:
         raise HTTPException(400, "Missing filename.")
@@ -113,11 +115,11 @@ def image_path(filename: str | None) -> Path:
     if supplied.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
         raise HTTPException(400, "Unsupported image type.")
 
-    if (IMG_PATH / supplied.name).is_symlink():
+    if (directory / supplied.name).is_symlink():
         raise HTTPException(400, "Images must be regular files.")
-    target = (IMG_PATH / supplied.name).resolve()
+    target = (directory / supplied.name).resolve()
 
-    if target.parent != IMG_PATH:
+    if target.parent != directory:
         raise HTTPException(400, "Invalid image path.")
 
     return target
@@ -131,14 +133,14 @@ def image_path(filename: str | None) -> Path:
 )
 async def image_post(request: Request, file: Annotated[UploadFile, File(...)]):
     """Validate and atomically store a bounded image upload."""
-    target, content = await read_image_upload(file)
+    target, content = await read_image_upload(file, directory=await image_directory(request))
     async with request.app.state.publications.lock:
         await atomic_write_bytes(target, content)
     return {"filename": file.filename}
 
 
-async def read_image_upload(file):
-    target = image_path(file.filename)
+async def read_image_upload(file, *, directory=None):
+    target = image_path(file.filename, directory)
     content = await file.read(MAX_IMAGE_BYTES + 1)
     await file.close()
 
@@ -155,13 +157,14 @@ async def read_image_upload(file):
 @router.get("/api/publishments", dependencies=[Depends(require_permission("publish"))])
 async def publishments_get(request: Request) -> list:
     """Publishments Get"""
-    return await request.app.state.publications.inventory()
+    return await (await publication_store(request)).inventory()
 
 
 @router.get("/api/images", dependencies=[Depends(require_permission("publish"))])
-async def images_get() -> list:
+async def images_get(request: Request) -> list:
     """Images Get"""
-    img_names = sorted(Path.iterdir(IMG_PATH), key=lambda path: path.name)
+    directory = await image_directory(request)
+    img_names = sorted(directory.iterdir(), key=lambda path: path.name) if directory.exists() else []
     img_data = []
     for i in img_names:
         if i.is_file() and i.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS:
@@ -185,7 +188,10 @@ async def publishment_delete(pub_name: str, request: Request):
     name = pub_name[:-5]
     publication_path(name)
 
-    if not await request.app.state.publications.delete(name):
-        raise HTTPException(404, "Publication not found.")
+    try:
+        if not await (await publication_store(request)).delete(name):
+            raise HTTPException(404, "Publication not found.")
+    except RouteConflict as error:
+        raise HTTPException(409, str(error)) from error
 
     return {"pub_name": pub_name}

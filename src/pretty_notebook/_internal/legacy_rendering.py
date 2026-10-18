@@ -115,7 +115,7 @@ def render_note(notebook, note):
 
 		def image(match):
 			name = match.group(1).strip()
-			url = _routes.public_url(prefix, "/static/imgs/" + quote(name, safe=""))
+			url = _routes.public_image_url(notebook.config, name)
 			return f"<img class=\"img-fluid\" src='{escape(url, quote=True)}'>"
 
 		def link(match):

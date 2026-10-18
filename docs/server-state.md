@@ -122,3 +122,11 @@ backing up and migrating; do not mix different application versions.
 Fresh default settings are created from a private complete sibling file and
 published with an atomic create-if-absent link. Concurrent startup preserves
 the first winner and existing modes; no reader sees partly written defaults.
+
+Version 4 retains existing notebook IDs and publication references while adding
+explicit notebook owners and allowing additional notebook slots. The former
+single notebook becomes `default`. Its original site owner is retained when
+available; newly bootstrapped sites bind their default notebook at owner creation.
+Back up the complete stopped site before upgrading; older application versions
+must use a matching pre-upgrade backup. The upgrade uses SQLite's transactional
+table-rebuild procedure and validates foreign keys before serving traffic.
