@@ -103,3 +103,15 @@ def test_remote_collision_preview_stops_before_uploads_or_prune(tmp_path, monkey
 		nb.post_commits_to_web_api(prune=True, mode="legacy")
 	assert len(requests) == 1 and requests[0][0].endswith("/api/routes/preview")
 	assert requests[0][1]["json"] == [{"name": "python/example", "aliases": ("/python-example",)}]
+
+
+def test_independent_notebook_client_scopes_routes_headers_and_images(tmp_path):
+    nb = notebook_at(tmp_path, {'same.md': '#public\n![[photo.png]]'}, ROUTE_MODE='namespaced', NOTEBOOK_SLUG='alpha', SERVER_NOTEBOOK='alpha')
+    entry = nb.publication_routes()['routes'][0]
+    assert entry['route'] == '/n/alpha/same' and not entry['aliases']
+    assert nb.get_headers()['X-PNBP-Notebook'] == 'alpha'
+    assert "src='/static/imgs/n/alpha/photo.png'" in nb.convert_to_html(nb.notes['same'])
+    with pytest.raises(SettingsError, match='matching SERVER_NOTEBOOK'):
+        NotebookSettings(server_notebook='alpha')
+    with pytest.raises(SettingsError, match='SERVER_NOTEBOOK'):
+        NotebookSettings(server_notebook='../escape')

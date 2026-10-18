@@ -1,6 +1,7 @@
 """Publication routes are independent of source paths and persistent identities."""
 
 import re
+from urllib.parse import quote
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 
@@ -29,6 +30,11 @@ def validate_prefix(prefix):
 
 def public_url(prefix, path):
 	return validate_prefix(prefix) + path
+
+
+def public_image_url(config, name):
+	slug = config.get("SERVER_NOTEBOOK", "default")
+	return public_url(config.get("URL_PREFIX", ""), "/static/imgs/" + ("n/" + slug + "/" if slug != "default" else "") + quote(name, safe=""))
 
 
 def _slug(value):
@@ -77,6 +83,6 @@ def plan_routes(notebook, notes):
 	ambiguous = {alias: paths for alias, paths in legacy.items() if len(paths) > 1 or (alias in owners and any(entry.route != alias for entry in routes if entry.source_path in paths))}
 	result = []
 	for entry in routes:
-		aliases = tuple(alias for alias, paths in legacy.items() if paths == [entry.source_path] and alias != entry.route and alias not in ambiguous)
+		aliases = tuple(alias for alias, paths in legacy.items() if notebook.config.get("SERVER_NOTEBOOK", "default") == "default" and paths == [entry.source_path] and alias != entry.route and alias not in ambiguous)
 		result.append(PublicationRoute(entry.source_path, entry.note_id, entry.title, entry.route, aliases))
 	return {"routes": [asdict(entry) for entry in result], "legacy_collisions": ambiguous}

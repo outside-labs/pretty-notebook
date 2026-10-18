@@ -238,9 +238,8 @@ class TypedRenderer:
                     return "<a href='" + url(resolved).replace("'", '&#39;') + "'>" + label + '</a>'
                 return '<a href="' + url(resolved) + '">' + label + '</a>'
             if isinstance(node, ImageEmbed):
-                from pretty_notebook._internal.routes import public_url
-                prefix = context.notebook.config.get('URL_PREFIX', '') if context.notebook else ''
-                image_url = public_url(prefix, '/static/imgs/' + quote(node.name, safe=''))
+                from pretty_notebook._internal.routes import public_image_url
+                image_url = public_image_url(context.notebook.config if context.notebook else {}, node.name)
                 return '<img class="img-fluid" src=\'' + url(image_url).replace("'", '&#39;') + "'>"
             if isinstance(node, Image):
                 values = dict(node.attributes)

@@ -85,6 +85,10 @@ def _validate_config(config):
 	mode = config.get("ROUTE_MODE", "flat")
 	if mode not in {"flat", "hierarchical", "namespaced"}:
 		raise SettingsError("ROUTE_MODE must be flat, hierarchical, or namespaced.")
+	if not SEGMENT.fullmatch(config.get("SERVER_NOTEBOOK", "default")):
+		raise SettingsError("SERVER_NOTEBOOK must be a lowercase notebook slug.")
+	if config.get("SERVER_NOTEBOOK", "default") != "default" and (mode != "namespaced" or config.get("NOTEBOOK_SLUG") != config["SERVER_NOTEBOOK"]):
+		raise SettingsError("Independent notebooks require matching SERVER_NOTEBOOK, NOTEBOOK_SLUG and namespaced routes.")
 	if mode == "namespaced" and not SEGMENT.fullmatch(config.get("NOTEBOOK_SLUG", "")):
 		raise SettingsError("Namespaced routes require a lowercase NOTEBOOK_SLUG.")
 	try:
@@ -121,6 +125,7 @@ class NotebookSettings:
 	note_nested: Literal["flat", "single", "recurs", "all"] = "flat"
 	route_mode: Literal["flat", "hierarchical", "namespaced"] = "flat"
 	notebook_slug: str = ""
+	server_notebook: str = "default"
 	url_prefix: str = ""
 	publication_routes: dict[str, str] = field(default_factory=dict)
 	pub_lnk_only: bool = False

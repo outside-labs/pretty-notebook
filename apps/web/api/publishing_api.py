@@ -11,6 +11,7 @@ from pydantic import Field
 from . import catalog, publish_api
 from .atomic_io import atomic_write_bytes
 from .permissions import require_permission
+from .notebooks import publication_store, image_directory
 
 router = APIRouter(prefix="/api/publishing", dependencies=[Depends(require_permission("publish"))])
 
@@ -54,16 +55,17 @@ def image_digest(path):
 @router.get("/capabilities")
 async def capabilities():
     return {"protocol": "revision-1", "content_hashes": True, "checked_publications": True,
-            "checked_images": True, "legacy_mode": "0.9", "single_notebook": True}
+            "checked_images": True, "legacy_mode": "0.9", "single_notebook": True, "independent_notebooks": True}
 
 
 @router.get("/inventory")
 async def inventory(request: Request):
-    store = request.app.state.publications
+    store = await publication_store(request)
     async with store.lock:
         pages = await store.inventory(detailed=True)
         images = []
-        for path in sorted(request.app.state.images_path.iterdir()):
+        directory = await image_directory(request)
+        for path in sorted(directory.iterdir()) if directory.exists() else ():
             if path.is_file() and path.suffix.lower() in publish_api.ALLOWED_IMAGE_EXTENSIONS:
                 digest = await asyncio.to_thread(image_digest, path)
                 images.append({"name": path.name, "source_hash": digest, "etag": image_etag(digest)})
@@ -78,7 +80,7 @@ async def publish(request: Request, publication: CheckedPublication):
     if digest != publication.rendered_hash:
         raise HTTPException(400, "Rendered hash does not match the supplied HTML bytes.")
     try:
-        note = await request.app.state.publications.publish(
+        note = await (await publication_store(request)).publish(
             publication.name, publication.content, title=publication.title,
             aliases=publication.aliases, previous_name=publication.previous_name,
             checked=True, expected_etag=expected, source_hash=publication.source_hash,
@@ -103,16 +105,18 @@ async def delete(request: Request, name: str):
     expected = precondition(request, creating=False)
     publish_api.publication_path(name)
     try:
-        await request.app.state.publications.delete(name, checked=True, expected_etag=expected)
+        await (await publication_store(request)).delete(name, checked=True, expected_etag=expected)
     except catalog.RevisionConflict as error:
         raise HTTPException(412, str(error)) from error
+    except catalog.RouteConflict as error:
+        raise HTTPException(409, str(error)) from error
     return {"name": name, "deleted": True}
 
 
 @router.put("/image")
 async def image(request: Request, file: Annotated[UploadFile, File(...)]):
     expected = precondition(request)
-    target, content = await publish_api.read_image_upload(file)
+    target, content = await publish_api.read_image_upload(file, directory=await image_directory(request))
     digest = hashlib.sha256(content).hexdigest()
     async with request.app.state.publications.lock:
         current = image_etag(await asyncio.to_thread(image_digest, target)) if target.exists() else None

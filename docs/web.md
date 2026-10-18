@@ -404,3 +404,31 @@ Scripts cannot exceed their account's current role/grants. List credential IDs
 with `GET /api/credentials` and revoke with `DELETE /api/credentials/{id}`.
 Password changes and replacement account tokens invalidate existing scripts.
 Use `X-PNBP-Notebook` to select a notebook; absent headers select `default`.
+
+## Independent notebooks
+
+Create an editor account, then let a site owner create its notebook with
+`POST /api/notebooks` and `{"slug":"field-notes","owner_id":2}`. The owner
+record and that editor's read/publish/log grants commit together. Notebook
+slugs are permanent namespace identifiers. Existing routes occupying a proposed
+namespace must be migrated before it can be claimed. `GET /api/notebooks`
+returns only the requesting account's granted notebooks, or all notebooks for
+site owners.
+
+For the local notebook, set `SERVER_NOTEBOOK` and `NOTEBOOK_SLUG` to
+`field-notes`, and `ROUTE_MODE` to `namespaced`. Publications use
+`/n/field-notes/<note-path>`, with no site-wide flat aliases. The client sends
+`X-PNBP-Notebook: field-notes`; images use
+`/static/imgs/n/field-notes/<filename>`. Two notebooks can use the same note
+and image names. Layout, favicon, appearance and inbox remain site-wide owner
+operations. Notebook ownership does not grant site administration.
+
+Requests without a notebook header address `default`, including legacy
+inventory and deletion endpoints. Existing flat/hierarchical routes and
+previous single-notebook namespaced routes remain there after upgrade. No
+unscoped pruning operation can delete another notebook's publications. Every
+selected notebook is still a single-notebook checked-publishing scope; the
+capabilities response additionally advertises `independent_notebooks`.
+
+All content and attachments in this profile are public. Private-reader and
+browser-session support require their separate permission/rendering gates.
