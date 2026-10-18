@@ -1,13 +1,13 @@
 # Versions and support
 
-The current release is `pretty-notebook==0.10.0`, supporting the Python library
+The current release is `pretty-notebook==0.11.0`, supporting the Python library
 and CLI on Python 3.11 or newer. `pretty_notebook` is the canonical import;
-compatible `pnbp` imports and the CLI remain supported. The final `pnbp==0.10.0`
+compatible `pnbp` imports and the CLI remain supported. The final `pnbp==0.11.0`
 distribution contains metadata only and installs the canonical package.
 
 The historical `pnbp==0.9.0` release retains its versioned contract in the
 [0.9 notes](release-0.9.0.md). See [package migration](package-migration.md),
-[0.10 notes](release-0.10.0.md) and [readiness evidence](release-0.10.0-readiness.md).
+[0.11 notes](release-0.11.0.md) and [readiness evidence](release-0.11.0-readiness.md).
 Optional and later features remain explicitly deferred.
 
 The repository Markdown is the canonical documentation. The documentation
@@ -18,9 +18,10 @@ GitHub rather than treating `main` as the installed release's reference.
 
 The FastAPI publisher is a separate repository application with its own pinned
 dependencies. Its supported deployment is one Gunicorn instance with up to four workers,
-one local SQLite database and one default notebook behind a TLS proxy. Follow [web deployment](web.md)
-for the current contract. Shared notebook ownership, reader roles and distributed
-or multi-host storage are deferred. macOS protocol handlers remain unsupported.
+one local SQLite database and explicitly owned public notebooks behind a TLS proxy. Follow [web deployment](web.md)
+for the current contract. Browser sessions, private-reader access, share links, remote Markdown history,
+bidirectional synchronization, browser editing, installed-wheel web packaging,
+and distributed or multi-host storage are deferred. macOS protocol handlers remain unsupported.
 
 Sphinx/MyST build tools are documentation-only and require Python 3.12 or newer;
 CI uses Python 3.14. This does not alter the library's Python 3.11 support.

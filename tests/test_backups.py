@@ -1,5 +1,6 @@
 from contextlib import closing
 from dataclasses import replace
+from importlib.metadata import version
 import json
 import os
 from pathlib import Path
@@ -26,7 +27,8 @@ def git(checkout, *arguments):
 def site(tmp_path, monkeypatch):
     checkout = tmp_path / 'checkout'
     checkout.mkdir()
-    (checkout / 'pyproject.toml').write_text('[project]\nversion="0.10.0"\n')
+    fixture_version = version('pretty-notebook')
+    (checkout / 'pyproject.toml').write_text(f'[project]\nversion="{fixture_version}"\n')
     git(checkout, 'init', '-q')
     git(checkout, 'add', 'pyproject.toml')
     git(checkout, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'Synthetic fixture')

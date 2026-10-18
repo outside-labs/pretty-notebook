@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > `apps/web` is supported for public deployment only in the constrained
 > topology described here. A deployment outside this profile has not passed
-> the documented 0.10 checks. The released 0.9 contract remains
+> the documented 0.11 checks. The released 0.9 contract remains
 > a single-worker deployment.
 
 The FastAPI application publishes HTML and images produced by `pnbp`, serves a
@@ -18,8 +18,8 @@ wheel.
 | Platform | Linux x86_64 with CPython 3.11 or 3.14 and the hash-locked wheel set |
 | Application | One Gunicorn instance with 1–4 `uvicorn_worker.UvicornWorker` processes; four by default |
 | State | One local persistent data directory containing one SQLite database, pages, images, and layout settings |
-| Publication ownership | One notebook owns the server's complete page namespace |
-| Editors | Every API account is a trusted site editor; user ID 1 is the owner that may create more accounts |
+| Publication ownership | Explicit notebook owners with isolated namespaces, inventories and pruning |
+| Editors | Explicit site-owner, editor, reader and inbox roles; notebook publishing requires a grant and trusted authors |
 | Network | The application binds to loopback behind a TLS-terminating reverse proxy |
 | Operations | One host, stopped-site backups, and version-matched restores |
 
@@ -38,14 +38,14 @@ and stopped-service upgrade bundles, or the optional [Linux container profile](c
 
 ## Install a reviewed checkout
 
-Use a dedicated service account and an explicitly reviewed 0.10
+Use a dedicated service account and an explicitly reviewed 0.11
 commit. Set `PNBP_REVISION` to that full commit SHA. The released `v0.9.0`
 tag retains its historical single-worker contract.
 
 ```bash
 git clone https://github.com/outside-labs/pretty-notebook.git pnbp
 cd pnbp
-: "${PNBP_REVISION:?Set a reviewed 0.10 commit SHA}"
+: "${PNBP_REVISION:?Set a reviewed 0.11 commit SHA}"
 git checkout --detach "$PNBP_REVISION"
 
 python3.11 -m venv .venv
@@ -173,13 +173,13 @@ upload images, change layout settings, and read the local inbox, so create
 accounts only for equally trusted site editors.
 
 Tokens last 30 days. Issuing a new token or resetting a password revokes that
-account's previous token. The development client stores refreshed tokens in a
+account's previous token. The client stores refreshed tokens in a
 separate private `.pnbp/secrets.json`; portable settings contain no credentials.
 Legacy `pnbp_settings.json` tokens remain readable. Follow
 [credential storage](settings.md#credentials-and-sharing), exclude credentials
 from shared backups, and treat every bearer token as a password.
 
-## Publish from one notebook
+## Publish a selected notebook
 
 Review changes before sending them:
 
@@ -188,7 +188,7 @@ pnbp commit-stage --json --mode checked
 pnbp commit-remote --mode checked
 ```
 
-The 0.10 client compares source/rendered/image hashes and checked
+The client compares source/rendered/image hashes and checked
 remote revisions. Preview writes no local receipts or remote content, and a
 conflict requires a fresh reviewed plan. See [checked publishing](checked-publishing.md)
 for preconditions, retries and legacy fallback. The published 0.9.0 client uses
@@ -196,9 +196,10 @@ timestamp comparisons; `touch-all-public` requests a refresh in that legacy mode
 `--refresh-images` explicitly resends referenced images.
 
 Pruning is intentionally explicit. Use `--prune` only after reviewing
-`pnbp commit-stage` and confirming that this notebook owns the entire server
-namespace. It deletes every remote page absent from the notebook. Shared
-multi-notebook ownership is not a supported 0.9 contract.
+`pnbp commit-stage` and confirming the selected `SERVER_NOTEBOOK` scope. It deletes pages absent from
+that notebook only. Requests without a notebook header select `default`;
+legacy endpoints enforce the same ownership boundary. Shared multi-notebook
+ownership remains outside the historical 0.9 contract.
 
 The server accepts publication slugs made from lowercase letters, digits, and
 single hyphens, with explicit hierarchical routes in development. It limits publication bodies to 2,000,000 characters. Image
@@ -219,7 +220,7 @@ settings and send it with `pnbp commit-settings` or authenticated
 their configured publication title followed by the site title. Contact and
 missing-page responses have their own page titles. Titles are escaped as text.
 
-The 0.10 client adds a dedicated favicon command:
+The client includes a dedicated favicon command:
 
 ```bash
 pnbp favicon ./site.png
@@ -228,10 +229,8 @@ pnbp favicon ./site.png --local
 ```
 
 From Python, use `nb.post_favicon("./site.png")`. Both use the notebook's
-`API_BASE` and bearer token. The server requires the initial owner account
-(user ID 1) for site-wide favicon changes. Other equally trusted editors retain
-their existing publication permissions; a future role model must preserve this
-site-management boundary.
+`API_BASE` and bearer token. The server requires the site-owner role and a `site` credential scope for
+site-wide favicon changes. Notebook editor grants do not grant site management.
 
 The request is `POST /api/favicon` with a multipart field named `file`, a
 `.png` filename and the owner's `Authorization: Bearer ...` header. A successful

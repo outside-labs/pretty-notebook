@@ -13,8 +13,10 @@ and verification; current status comes from GitHub.
   package/appearance/deployment/coverage block, the OPS-04A startup correction,
   and 3 optional builder/operations
   tasks. Optional work can move intact to a later release.
-- **0.11 proposed:** 9 collaboration tasks, the operation-logging proposal,
-  and 1 optional packaging task.
+- **0.11 foundation:** typed Markdown, CLI/operations improvements, scoped
+  permissions, independent public notebook ownership and durable operation logs.
+  Browser sessions, private readers/shares, remote source/history, bidirectional
+  sync, browser editing and optional installed-wheel web packaging remain later work.
 - **0.12 proposed:** 4 Markdown-engine tasks with explicit compatibility gates.
 - **Later:** 8 follow-on tasks. Later version labels are planning buckets.
 
@@ -22,7 +24,7 @@ The additional 0.10 block introduces the canonical `pretty_notebook` import and
 `pretty-notebook` development distribution, compatible `pnbp` imports/CLI, theme
 preferences, responsive navigation, coordinated local workers, VPS bundles and
 coverage auditing. Its six required child tasks are #145–#150; logging #151 is
-queued for 0.11. Retain local SQLite, one owning notebook, trusted editors and a
+included in 0.11. Retain local SQLite, explicitly owned public notebooks, trusted editors and a
 TLS proxy, with one Gunicorn instance and up to four coordinated workers.
 Release publication, hosted deployment, and new external service/provider
 decisions have their own authorization boundaries.

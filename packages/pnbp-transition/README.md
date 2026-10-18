@@ -12,10 +12,10 @@ the old wheel can remove those newly installed files.
 
 ```sh
 python -m pip uninstall pnbp
-python -m pip install pretty-notebook==0.10.0
+python -m pip install pretty-notebook==0.11.0
 ```
 
 Notebook Markdown and settings are data outside the package installation.
 Back them up before upgrading and follow the
-[migration guide](https://github.com/outside-labs/pretty-notebook/blob/v0.10.0/docs/package-migration.md).
+[migration guide](https://github.com/outside-labs/pretty-notebook/blob/v0.11.0/docs/package-migration.md).
 New installations should request `pretty-notebook` directly.

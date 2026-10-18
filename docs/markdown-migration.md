@@ -1,7 +1,7 @@
 # Markdown renderer migration
 
-This page describes the unreleased development checkout after MD-01–MD-05.
-The published `pretty-notebook==0.10.0` and `pnbp==0.10.0` artifacts are unchanged.
+The 0.11 release includes the typed parser and renderer delivered by MD-01–MD-05.
+The 0.10 artifacts retain the previous Python-Markdown implementation.
 
 ## Default and compatibility backend
 

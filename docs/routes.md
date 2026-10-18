@@ -25,7 +25,9 @@ exports use contained subdirectories matching their canonical routes.
 
 `ROUTE_MODE: "namespaced"` with `NOTEBOOK_SLUG: "field-notes"` prepares
 `/n/field-notes/...` routes. This is a mapping for the existing default notebook;
-independent notebook ownership and shared pruning remain deferred.
+independent notebook ownership and grant-scoped pruning are supported when
+`SERVER_NOTEBOOK` selects a registered notebook. See
+[independent notebooks](web.md#independent-notebooks).
 
 ## Server migration
 

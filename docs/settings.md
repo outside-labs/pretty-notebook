@@ -57,7 +57,7 @@ Every mode excludes `.pnbp/`, `.git/`, `.obsidian/`, and `__pycache__/`.
 
 ## Markdown backend
 
-The unreleased development checkout defaults to `MARKDOWN_BACKEND="typed"`.
+The 0.11 release defaults to `MARKDOWN_BACKEND="typed"`.
 `NotebookSettings(markdown_backend="python-markdown")` or the corresponding JSON,
 environment, or mapping key selects the optional compatibility backend. Install
 its `legacy-markdown` extra from the checkout before selecting it. Invalid
@@ -130,3 +130,7 @@ exclude root legacy settings, the new secret file, credential temporary files,
 the legacy backup, and recovery drafts even without `.gitignore` setup. `pnbp init-git-ignore`
 adds matching rules. Portable `.pnbp/settings.json` can be committed deliberately;
 review its local paths and site settings before sharing it.
+
+For an independent server notebook, configure matching `SERVER_NOTEBOOK` and
+`NOTEBOOK_SLUG` values and `ROUTE_MODE="namespaced"`. The default server scope is
+`default`; see [independent notebooks](web.md#independent-notebooks).

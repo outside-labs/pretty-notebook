@@ -1,8 +1,8 @@
 # Typed Markdown
 
 The `pretty_notebook.markdown` module composes immutable Markdown values. It is
-separate from the existing string-like notebook components. This development
-checkout uses the in-house typed renderer by default; the published 0.10.0
+separate from the existing string-like notebook components. The
+0.11 release uses the in-house typed renderer by default; the historical 0.10.0
 release is unchanged. See [renderer migration](markdown-migration.md).
 
 ```python
