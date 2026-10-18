@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 
@@ -75,3 +76,22 @@ def test_editor_uses_argument_vector_and_detects_unchanged_text(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", changed)
     assert edit_text("Original\n") == ""
+
+
+def test_clone_diagnostics_preserve_subprocess_text(monkeypatch, tmp_path):
+    run = subprocess.run
+    commands = []
+
+    def diagnostic(command, **kwargs):
+        commands.append(command)
+        return run([sys.executable, '-c', 'import sys; sys.stderr.buffer.write("Cloné ✓\\n".encode("utf-8") + bytes([255]))'], **kwargs)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(subprocess, 'run', diagnostic)
+    result = CliRunner().invoke(cli, ['git-clone-pnbp-web'])
+    assert result.exit_code == 0, result.exception
+    assert result.output.count('Cloné ✓') == 2
+    assert "b'" not in result.output and '\\xc3' not in result.output
+    assert commands[0][:2] == ['git', 'clone']
+    assert commands[1][3:5] == ['sparse-checkout', 'set']
+    assert not list(tmp_path.iterdir())
