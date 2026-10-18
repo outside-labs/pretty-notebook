@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 import requests
-from click.testing import CliRunner
+from cli_runner import CliRunner
 
 from pretty_notebook import Notebook
 from pretty_notebook._internal import publication_plan as plans, publication_state as state

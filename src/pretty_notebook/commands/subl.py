@@ -2,7 +2,7 @@ import json
 import os
 import subprocess
 
-import click
+from expose_interface import option
 
 from pretty_notebook.helpers import pass_nb
 
@@ -10,7 +10,7 @@ from pretty_notebook.helpers import pass_nb
 
 """ w/ symlink to NOTE_PATH
 """
-@click.option('--path', default='.', help='File path to new project')
+@option('--path', default='.', help='File path to new project')
 @pass_nb
 def _subl_init(path, nb=None):
 	""" Command to initiate local Sublime Text project 
@@ -42,7 +42,7 @@ def _subl_init(path, nb=None):
 		f.write(json.dumps(defaultJson, indent=4))
 
 	x = subprocess.run(['ln', '-s', os.path.join(path, f'{projname}.sublime-project'), nb.NOTE_PATH], capture_output=True)
-	click.echo(x)
+	print(x)
 
 	_collect_subl_projs(nb)
 

@@ -159,12 +159,12 @@ wheels = [
 ]
 
 [[package]]
-name = "click"
-version = "8.5.0"
+name = "expose-interface"
+version = "0.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c7/0e/7fa0ef50764b67090eca4114772a2abf8b6148198475e54c660b97caeee6/click-8.5.0.tar.gz", hash = "sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34", size = 382235, upload-time = "2026-08-26T13:33:14.56Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5c/59/eea6d779e745ec08aa66fe500b8a538653f42d01036aa1092dfebb01ab9f/expose_interface-0.1.0.tar.gz", hash = "sha256:76c74d5e0fbae7a1c715ec7aaf89403644a67c0bd8a861eb0fe2d38059ef5dda", size = 13361, upload-time = "2026-10-15T16:59:08.467Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/50/6c0d534c5f134586a8e1ba4e330569e32f057e33372ae556463212fb4cd3/click-8.5.0-py3-none-any.whl", hash = "sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360", size = 125251, upload-time = "2026-08-26T13:33:12.928Z" },
+    { url = "https://files.pythonhosted.org/packages/12/e9/935d1d85232a02cad3e7c37ec1597e3771fad25a1cd1bb49cc58f4522414/expose_interface-0.1.0-py3-none-any.whl", hash = "sha256:6ec6736b98e777ea63dcfe4fd99e87e2fade3e27fc659acace919bed8860d689", size = 16917, upload-time = "2026-10-15T16:59:07.209Z" },
 ]
 
 [[package]]
@@ -211,19 +211,24 @@ name = "pretty-notebook"
 version = "0.10.0"
 source = { editable = "." }
 dependencies = [
-    { name = "click" },
-    { name = "markdown" },
+    { name = "expose-interface" },
     { name = "requests" },
     { name = "rich" },
 ]
 
+[package.optional-dependencies]
+legacy-markdown = [
+    { name = "markdown" },
+]
+
 [package.metadata]
 requires-dist = [
-    { name = "click", specifier = ">=8.0" },
-    { name = "markdown", specifier = ">=3.3.4" },
+    { name = "expose-interface", specifier = ">=0.1.0,<0.2" },
+    { name = "markdown", marker = "extra == 'legacy-markdown'", specifier = ">=3.3.4" },
     { name = "requests", specifier = ">=2.26" },
     { name = "rich", specifier = ">=10.6" },
 ]
+provides-extras = ["legacy-markdown"]
 
 [[package]]
 name = "pygments"

@@ -31,23 +31,24 @@ html_sidebars = {"**": ["about.html", "navigation.html", "searchfield.html"]}
 
 
 class CliHelp(SphinxDirective):
-    """Render Click's actual help without invoking a command or its callbacks."""
+    """Render native interface help without invoking setup or program callbacks."""
 
     optional_arguments = 1
     final_argument_whitespace = True
 
     def run(self):
-        import click
-        from pretty_notebook.cli import cli
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from expose_interface import UsageError
+        from pretty_notebook.cli import app
 
-        command = cli
-        context = click.Context(command, info_name="pnbp")
-        for name in self.arguments[0].split() if self.arguments else ():
-            if not isinstance(command, click.Group) or name not in command.commands:
-                raise self.error(f"Unknown CLI command: {name}")
-            command = command.commands[name]
-            context = click.Context(command, info_name=name, parent=context)
-        help_text = command.get_help(context)
+        output = StringIO()
+        try:
+            with redirect_stdout(output):
+                app.invoke([*(self.arguments[0].split() if self.arguments else []), "--help"])
+        except UsageError as error:
+            raise self.error(str(error)) from error
+        help_text = output.getvalue()
         return [nodes.literal_block(help_text, help_text, language="console")]
 
 

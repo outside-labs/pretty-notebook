@@ -6,8 +6,10 @@ from dataclasses import asdict
 from functools import wraps
 from pathlib import Path
 
-import click
+from expose_interface import CommandError, Context, Interface, UsageError, argument, flag, option
 import requests
+
+from ._internal.cli_tools import edit_text, existing_file, limit_value, offset_value
 
 from .commands import collect
 from .commands import commit
@@ -27,27 +29,29 @@ from .settings import initialize_notebook, resolve_notebook_path, SettingsError
 
 
 
-@click.group()
-@click.option("--notebook", "notebook_path", type=click.Path(path_type=Path, file_okay=False, exists=True), help="Open this notebook path.")
-@click.option("--profile", "notebook_profile", help="Open a registered local notebook profile.")
-@click.pass_context
-def cli(context, notebook_path, notebook_profile):
+@option("--notebook", dest="notebook_path", help="Open this notebook path.")
+@option("--profile", dest="notebook_profile", help="Open a registered local notebook profile.")
+def _setup(context: Context, notebook_path: Path | None = None, notebook_profile: str | None = None):
 	if notebook_path is not None and notebook_profile is not None:
-		raise click.UsageError("Choose --notebook or --profile, not both.")
+		raise UsageError("Choose --notebook or --profile, not both.")
+	if notebook_path is not None and not notebook_path.is_dir():
+		raise UsageError("--notebook must be an existing directory.")
 	selection = {"path": notebook_path} if notebook_path is not None else {"profile": notebook_profile} if notebook_profile is not None else {}
 	context.obj = {"selection": selection, "notebook": None}
 
 
-cli.add_command(deploy)
+app = Interface("pnbp", setup=_setup)
+app.add_interface(deploy)
+cli = app.main
 
 
-def _open_notebook():
-	state = click.get_current_context().find_root().obj
+def _open_notebook(context):
+	state = context.obj
 	if state["notebook"] is None:
 		try:
 			state["notebook"] = Notebook(**state["selection"])
 		except (SettingsError, ImportError, OSError) as error:
-			raise click.ClickException(str(error)) from error
+			raise CommandError(str(error)) from error
 	return state["notebook"]
 
 
@@ -57,7 +61,7 @@ def _command_errors(func):
 		try:
 			return func(*args, **kwargs)
 		except (SettingsError, ValueError, OSError, RuntimeError, KeyError) as error:
-			raise click.ClickException(str(error)) from error
+			raise CommandError(str(error)) from error
 	return invoke
 
 
@@ -73,7 +77,7 @@ def _json_echo(payload, notebook):
 		if isinstance(value, dict):
 			return {key: clean(item) for key, item in value.items()}
 		return value
-	click.echo(json.dumps(clean(payload), ensure_ascii=False))
+	print(json.dumps(clean(payload), ensure_ascii=False))
 
 
 def _note_name(name):
@@ -93,21 +97,21 @@ def _selected_note(notebook, name):
 
 def _source_text(content, source, *, default=""):
 	if content is not None and source is not None:
-		raise click.UsageError("Choose --content or --file, not both.")
-	return source.read() if source is not None else content if content is not None else default
+		raise UsageError("Choose --content or --file, not both.")
+	return (sys.stdin.read() if source == "-" else Path(source).read_text(encoding="utf-8")) if source is not None else content if content is not None else default
 
 
-@cli.command("init")
-@click.argument("path", type=click.Path(path_type=Path, file_okay=False), required=False)
-@click.option("--migrate", is_flag=True, help="Migrate legacy settings and retain a private original backup.")
-@click.option("--dry-run", is_flag=True, help="Validate and show the plan without creating or changing files.")
-@click.option("--profile", help="Register a named local notebook profile.")
+@app.program(name="init")
+@argument('path', required=False)
+@flag('--migrate', help='Migrate legacy settings and retain a private original backup.')
+@flag('--dry-run', help='Validate and show the plan without creating or changing files.')
+@option('--profile', help='Register a named local notebook profile.')
 @_command_errors
-def init_notebook(path, migrate, dry_run, profile):
+def init_notebook(context: Context, *, path: Path | None = None, migrate: bool = False, dry_run: bool = False, profile = None):
 	"""Explicitly initialize settings and identities; never initialize Git."""
 	try:
 		if path is None:
-			selection = click.get_current_context().find_root().obj["selection"]
+			selection = context.obj["selection"]
 			path = resolve_notebook_path(**selection) if selection else Path(".")
 		initialize_notebook(path, migrate=migrate, dry_run=True, profile=profile)
 		identity_plan = _identities.initialize_identities(path, dry_run=True)
@@ -115,85 +119,81 @@ def init_notebook(path, migrate, dry_run, profile):
 		if not dry_run:
 			identity_plan = _identities.initialize_identities(path)
 	except (SettingsError, ImportError, OSError) as error:
-		raise click.ClickException(str(error)) from error
-	click.echo(json.dumps({**plan.to_dict(), "identities": identity_plan, "dry_run": dry_run}, indent=2))
+		raise CommandError(str(error)) from error
+	print(json.dumps({**plan.to_dict(), "identities": identity_plan, "dry_run": dry_run}, indent=2))
 
 
-@cli.group("identity")
-def identity_commands():
-	"""Inspect, reconcile, or deliberately fork local identities."""
+identity_commands = app.add_interface(Interface("identity", description="Inspect, reconcile, or deliberately fork local identities."))
 
 
-@identity_commands.command("status")
-@click.option("--json", "output_json", is_flag=True)
-@click.option("--limit", type=click.IntRange(1, 200), default=200)
+@identity_commands.program(name="status")
+@flag('--json', dest='output_json')
+@option('--limit', type=limit_value, default=200)
 @_command_errors
-def identity_status(output_json, limit):
-	nb = _open_notebook()
+def identity_status(context: Context, *, output_json: bool = False, limit = 200):
+	nb = _open_notebook(context)
 	report = nb.identity_status(limit=limit)
 	if output_json:
 		_json_echo(report, nb)
 	else:
-		click.echo(json.dumps(report, ensure_ascii=False, indent=2))
+		print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
-@identity_commands.command("reconcile")
-@click.argument("old_path")
-@click.argument("new_path")
-@click.option("--dry-run", is_flag=True)
+@identity_commands.program(name="reconcile")
+@argument('old_path')
+@argument('new_path')
+@flag('--dry-run')
 @_command_errors
-def reconcile_identity(old_path, new_path, dry_run):
-	nb = _open_notebook()
+def reconcile_identity(context: Context, old_path, new_path, *, dry_run: bool = False):
+	nb = _open_notebook(context)
 	_json_echo(_identities.reconcile_identity(nb.NOTE_PATH, old_path, new_path, dry_run=dry_run), nb)
 
 
-@identity_commands.command("fork")
-@click.option("--dry-run", is_flag=True)
+@identity_commands.program(name="fork")
+@flag('--dry-run')
 @_command_errors
-def fork_identity(dry_run):
-	nb = _open_notebook()
+def fork_identity(context: Context, *, dry_run: bool = False):
+	nb = _open_notebook(context)
 	_json_echo(nb.fork_identities(dry_run=dry_run), nb)
 
 
-@cli.group("note")
-def note_commands():
-	"""Add, read, and edit notes with explicit saves."""
+note_commands = app.add_interface(Interface("note", description="Add, read, and edit notes with explicit saves."))
 
 
-@note_commands.command("add")
-@click.argument("name")
-@click.option("--content", help="Initial Markdown text, including an explicit empty string.")
-@click.option("--file", "source", type=click.File("r", encoding="utf-8"), help="Read Markdown from a file or '-' for stdin.")
+@note_commands.program(name="add")
+@argument('name')
+@option('--content', help='Initial Markdown text, including an explicit empty string.')
+@option('--file', dest='source', help="Read Markdown from a file or '-' for stdin.")
 @_command_errors
-def note_add(name, content, source):
-	nb = _open_notebook()
+def note_add(context: Context, name, *, content = None, source = None):
+	nb = _open_notebook(context)
 	created = nb.generate_note(_note_name(name), _source_text(content, source))
-	click.echo(f"Created {created.source_path}")
+	print(f"Created {created.source_path}")
 
 
-@note_commands.command("show")
-@click.argument("name")
-@click.option("--html", "as_html", is_flag=True, help="Render through the existing notebook renderer.")
+@note_commands.program(name="show")
+@argument('name')
+@flag('--html', dest='as_html', help='Render through the existing notebook renderer.')
 @_command_errors
-def note_show(name, as_html):
-	nb = _open_notebook()
+def note_show(context: Context, name, *, as_html: bool = False):
+	nb = _open_notebook(context)
 	note = _selected_note(nb, name)
-	click.echo(nb.convert_to_html(note) if as_html else note.current_md, nl=False)
+	print(nb.convert_to_html(note) if as_html else note.current_md, end="")
 
 
-@note_commands.command("edit")
-@click.argument("name")
-@click.option("--content", help="Replacement Markdown, including an explicit empty string.")
-@click.option("--file", "source", type=click.File("r", encoding="utf-8"), help="Read replacement Markdown from a file or '-' for stdin.")
+@note_commands.program(name="edit")
+@argument('name')
+@option('--content', help='Replacement Markdown, including an explicit empty string.')
+@option('--file', dest='source', help="Read replacement Markdown from a file or '-' for stdin.")
 @_command_errors
-def note_edit(name, content, source):
-	nb = _open_notebook()
+def note_edit(context: Context, name, *, content = None, source = None):
+	nb = _open_notebook(context)
 	note = _selected_note(nb, name)
 	edited = _source_text(content, source, default=None)
 	if content is None and source is None:
-		edited = click.edit(note.current_md, extension=".md")
+		edited = edit_text(note.current_md)
 	if edited is None:
-		click.echo("No changes saved.")
+		print("No changes saved.")
 		return
 	note.md_out = edited
 	try:
@@ -202,78 +202,78 @@ def note_edit(name, content, source):
 		try:
 			draft = retain_edit_draft(nb.NOTE_PATH, edited)
 		except OSError:
-			raise click.ClickException("Save failed and a recovery draft could not be written.") from error
-		raise click.ClickException(f"Save failed: {error}. Draft retained at {draft}") from error
-	click.echo(f"Saved {saved.source_path}")
+			raise CommandError("Save failed and a recovery draft could not be written.") from error
+		raise CommandError(f"Save failed: {error}. Draft retained at {draft}") from error
+	print(f"Saved {saved.source_path}")
 
 
-@note_commands.command("rename")
-@click.argument("source")
-@click.argument("new_name")
-@click.option("--dry-run", is_flag=True)
+@note_commands.program(name="rename")
+@argument('source')
+@argument('new_name')
+@flag('--dry-run')
 @_command_errors
-def note_rename(source, new_name, dry_run):
+def note_rename(context: Context, source, new_name, *, dry_run: bool = False):
 	"""Rename within the current directory and repair matching wiki targets."""
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	_json_echo(nb.rename_note(source, new_name, dry_run=dry_run), nb)
 
 
-@note_commands.command("move")
-@click.argument("source")
-@click.argument("destination")
-@click.option("--dry-run", is_flag=True)
+@note_commands.program(name="move")
+@argument('source')
+@argument('destination')
+@flag('--dry-run')
 @_command_errors
-def note_move(source, destination, dry_run):
+def note_move(context: Context, source, destination, *, dry_run: bool = False):
 	"""Move to a notebook-relative path with recoverable backlink updates."""
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	_json_echo(nb.move_note(source, destination, dry_run=dry_run), nb)
 
 
-@note_commands.command("operations")
-@click.option("--limit", type=click.IntRange(1, 200), default=200)
+@note_commands.program(name="operations")
+@option('--limit', type=limit_value, default=200)
 @_command_errors
-def note_operations(limit):
+def note_operations(context: Context, *, limit = 200):
 	"""List local move journals and their recovery state."""
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	_json_echo({"operations": nb.move_operations(limit=limit)}, nb)
 
 
-@note_commands.command("recover")
-@click.argument("operation_id")
-@click.option("--action", type=click.Choice(["resume", "rollback"]), default="resume", show_default=True)
-@click.option("--dry-run", is_flag=True)
+@note_commands.program(name="recover")
+@argument('operation_id')
+@option('--action', choices=['resume', 'rollback'], default='resume')
+@flag('--dry-run')
 @_command_errors
-def note_recover(operation_id, action, dry_run):
+def note_recover(context: Context, operation_id, *, action = 'resume', dry_run: bool = False):
 	"""Resume or roll back a checked local move journal."""
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	_json_echo(nb.recover_move(operation_id, action=action, dry_run=dry_run), nb)
 
 
-@cli.command("search")
-@click.argument("query")
-@click.option("--field", type=click.Choice(["content", "title", "tag", "any"]), default="content", show_default=True, help="Choose the matching note field.")
-@click.option("--tag", "tags", multiple=True, help="Require this exact tag; repeat to require every tag.")
-@click.option("--regex", is_flag=True, help="Treat the query as a local regular expression.")
-@click.option("--limit", type=click.IntRange(1, 200), default=50, show_default=True)
-@click.option("--offset", type=click.IntRange(min=0), default=0)
-@click.option("--json", "output_json", is_flag=True)
+@app.program(name="search")
+@argument('query')
+@option('--field', choices=['content', 'title', 'tag', 'any'], default='content', help='Choose the matching note field.')
+@option('--tag', dest='tags', multiple=True, help='Require this exact tag; repeat to require every tag.')
+@flag('--regex', help='Treat the query as a local regular expression.')
+@option('--limit', type=limit_value, default=50)
+@option('--offset', type=offset_value, default=0)
+@flag('--json', dest='output_json')
 @_command_errors
-def search_notes(query, field, tags, regex, limit, offset, output_json):
+def search_notes(context: Context, query, *, field = 'content', tags: tuple[str, ...] = (), regex: bool = False, limit = 50, offset = 0, output_json: bool = False):
 	"""Search local notes using literal, case-insensitive matching by default."""
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	hits = nb.search(query, field=field, tags=tags, regex=regex, limit=limit, offset=offset)
 	if output_json:
 		_json_echo({"hits": [asdict(hit) for hit in hits], "limit": limit, "offset": offset}, nb)
 	else:
 		for hit in hits:
-			click.echo(f"{hit.name}: {hit.excerpt}")
+			print(f"{hit.name}: {hit.excerpt}")
 
 
-@cli.command("status")
-@click.option("--json", "output_json", is_flag=True)
-@click.option("--limit", type=click.IntRange(1, 200), default=50, show_default=True)
-def notebook_status(output_json, limit):
-	nb = _open_notebook()
+@app.program(name="status")
+@flag('--json', dest='output_json')
+@option('--limit', type=limit_value, default=50)
+def notebook_status(context: Context, *, output_json: bool = False, limit = 50):
+	nb = _open_notebook(context)
 	unsaved = nb.unsaved_notes
 	report = {
 		"path": nb.NOTE_PATH, "notes": len(nb), "note_nested": nb.settings.note_nested,
@@ -284,7 +284,7 @@ def notebook_status(output_json, limit):
 	if output_json:
 		_json_echo(report, nb)
 	else:
-		click.echo(f"{nb.NOTE_PATH}: {len(nb)} notes, {len(unsaved)} pending edits")
+		print(f"{nb.NOTE_PATH}: {len(nb)} notes, {len(unsaved)} pending edits")
 
 
 
@@ -295,93 +295,77 @@ def _publish_notebook(notebook, **kwargs):
 	try:
 		return notebook.post_commits_to_web_api(**kwargs)
 	except requests.RequestException as error:
-		raise click.ClickException(f'Publication failed: {error}') from error
+		raise CommandError(f'Publication failed: {error}') from error
 
 
-@cli.command()
-def commit_html():
+@app.program
+def commit_html(context: Context):
 	""" if note contains #public, -> HTML_PATH/.html 
 		(for local debugging when running remote server 
 		and not a concurrent localhost instance...)
 	"""
 	# ^^ docstring == help message
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	nb.write_commits_to_local_html()
 
 
-@cli.command()
-@click.option(
-	'--prune',
-	is_flag=True,
-	help='Remove every remote page absent from this notebook after successful uploads.',
-)
-@click.option(
-	'--refresh-images',
-	is_flag=True,
-	help='Resend referenced images even when their names already exist remotely.',
-)
-@click.option("--mode", type=click.Choice(["auto", "checked", "legacy"]), default="auto", show_default=True)
-@click.option("--accept-remote", is_flag=True, help="Use reviewed current remote versions after a sync conflict.")
+@app.program
+@flag('--prune', help='Remove every remote page absent from this notebook after successful uploads.')
+@flag('--refresh-images', help='Resend referenced images even when their names already exist remotely.')
+@option('--mode', choices=['auto', 'checked', 'legacy'], default='auto')
+@flag('--accept-remote', help='Use reviewed current remote versions after a sync conflict.')
 @_command_errors
-def commit_remote(prune, refresh_images, mode, accept_remote):
+def commit_remote(context: Context, *, prune: bool = False, refresh_images: bool = False, mode = 'auto', accept_remote: bool = False):
 	""" if note contains #public, -> 
 		selective update POST to .../apps/web api
 		@ {API_BASE}/api/publishment
 	"""
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	_publish_notebook(nb, prune=prune, refresh_images=refresh_images, mode=mode, accept_remote=accept_remote)
 
 
-@cli.command()
-@click.option(
-	'--prune',
-	is_flag=True,
-	help='Remove every remote page absent from this notebook after successful uploads.',
-)
-@click.option(
-	'--refresh-images',
-	is_flag=True,
-	help='Resend referenced images even when their names already exist remotely.',
-)
-@click.option("--mode", type=click.Choice(["auto", "checked", "legacy"]), default="auto", show_default=True)
-@click.option("--accept-remote", is_flag=True, help="Use reviewed current remote versions after a sync conflict.")
+@app.program
+@flag('--prune', help='Remove every remote page absent from this notebook after successful uploads.')
+@flag('--refresh-images', help='Resend referenced images even when their names already exist remotely.')
+@option('--mode', choices=['auto', 'checked', 'legacy'], default='auto')
+@flag('--accept-remote', help='Use reviewed current remote versions after a sync conflict.')
 @_command_errors
-def commit_local(prune, refresh_images, mode, accept_remote):
+def commit_local(context: Context, *, prune: bool = False, refresh_images: bool = False, mode = 'auto', accept_remote: bool = False):
 	""" commit -> localhost .../apps/web instance
 	""" # a convenience command
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	nb.API_BASE = 'http://127.0.0.1:8000'
 	_publish_notebook(nb, prune=prune, refresh_images=refresh_images, mode=mode, accept_remote=accept_remote)
 
 
-@cli.command()
-@click.option("--json", "output_json", is_flag=True)
-@click.option("--limit", type=click.IntRange(1, 200), default=200, show_default=True)
-@click.option("--mode", type=click.Choice(["auto", "checked", "legacy"]), default="auto", show_default=True)
-@click.option("--prune", is_flag=True, help="Preview deletion of unlisted remote pages.")
-@click.option("--refresh-images", is_flag=True)
-@click.option("--accept-remote", is_flag=True, help="Preview using reviewed current remote versions after a sync conflict.")
+@app.program
+@flag('--json', dest='output_json')
+@option('--limit', type=limit_value, default=200)
+@option('--mode', choices=['auto', 'checked', 'legacy'], default='auto')
+@flag('--prune', help='Preview deletion of unlisted remote pages.')
+@flag('--refresh-images')
+@flag('--accept-remote', help='Preview using reviewed current remote versions after a sync conflict.')
 @_command_errors
-def commit_stage(output_json, limit, mode, prune, refresh_images, accept_remote):
+def commit_stage(context: Context, *, output_json: bool = False, limit = 200, mode = 'auto', prune: bool = False, refresh_images: bool = False, accept_remote: bool = False):
 	""" *only* print commit- changes against nb.API_BASE
 		to the terminal (staging view)
 	"""
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	if output_json:
 		try:
 			_json_echo(nb.publication_plan(limit=limit, mode=mode, prune=prune, refresh_images=refresh_images, accept_remote=accept_remote), nb)
 		except requests.RequestException as error:
-			raise click.ClickException("Could not read the remote publication inventory.") from error
+			raise CommandError("Could not read the remote publication inventory.") from error
 	else:
 		_publish_notebook(nb, stage_only=True, mode=mode, prune=prune, refresh_images=refresh_images, accept_remote=accept_remote)
 
 
-@cli.command()
-@click.option('--local', is_flag=True, default=False, help="post to localhost instead of the configured API_BASE")
-def commit_settings(local):
+@app.program
+@flag('--local', default=False, help='post to localhost instead of the configured API_BASE')
+def commit_settings(context: Context, *, local: bool = False):
 	"""Send configured layout settings to the web API.
 	"""
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	
 	if local:
 		nb.API_BASE = 'http://127.0.0.1:8000'
@@ -389,23 +373,23 @@ def commit_settings(local):
 	nb.web_settings_post()
 
 
-@cli.command()
-@click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("--local", is_flag=True, help="Upload to localhost instead of the configured API_BASE.")
+@app.program
+@argument('path', type=existing_file)
+@flag('--local', help='Upload to localhost instead of the configured API_BASE.')
 @_command_errors
-def favicon(path, local):
+def favicon(context: Context, path, *, local: bool = False):
 	"""Replace the site's PNG favicon using site-owner credentials."""
-	nb = _open_notebook()
+	nb = _open_notebook(context)
 	if local:
 		nb.API_BASE = "http://127.0.0.1:8000"
 	try:
 		response = nb.post_favicon(path)
 	except requests.RequestException as error:
-		raise click.ClickException("Could not update the site favicon.") from error
-	click.echo(response.json()["url"])
+		raise CommandError("Could not update the site favicon.") from error
+	print(response.json()["url"])
 
 
-@cli.command()
+@app.program
 def git_clone_pnbp_web():
 	""" command to clone from github to ./pnbp_web/
 	"""
@@ -418,85 +402,48 @@ def git_clone_pnbp_web():
 		
 	op = subprocess.run(cmd,capture_output=True)
 		
-	click.echo(op.stderr) # git outputs stdout to stderr
+	print(op.stderr) # git outputs stdout to stderr
 
 	wp = subprocess.run(cmd2, capture_output=True)
 	
-	click.echo(wp.stderr) 
+	print(wp.stderr)
 
 
 
-""" building click.commands out of 
-	the (imported above) local /commands/ package
-"""
-def _create_command(func):
-	""" effectively writes a :
+def _create_command(function):
+	"""Adapt legacy notebook functions to an invocation-local native program."""
+	parameters = inspect.signature(function).parameters
 
-		```@click.command()
-			def outer_act_cmd():
-				_outer_act_cmd()
-		```	
+	@wraps(function)
+	def invoke(context, **kwargs):
+		if "nb" in parameters:
+			kwargs["nb"] = _open_notebook(context)
+		return function(**kwargs)
 
-	where I had issues passing live parameters 
-	and chaining command calls in click otherwise.
-	
-	As actively wrapping here (vs calling _outer_act_cmd()),
-	has the nice feature of passing the _cmd's docstring to the --help info.
-
-	:param func: 
-	"""
-	original = func
-	parameters = inspect.signature(func).parameters
-	@wraps(original)
-	def invoke(*args, **kwargs):
-		if "nb" in parameters and kwargs.get("nb") is None:
-			kwargs["nb"] = _open_notebook()
-		return original(*args, **kwargs)
-	invoke.__name__ = original.__name__.lstrip('_')
-	func = _command_errors(invoke)
-	cmd = cli.command(name=original.__name__.lstrip('_').replace('_', '-'))
-
-	if 'note' in inspect.signature(func).parameters.keys():
-		# prove it : 
-		func = click.option(
-			'--fuzzy',
-			is_flag=True,
-			help='explicitly accept the closest matching note name',
-		)(func)
-		func = click.option('-n', '--note', type=str, help='the name of a note', required=True)(func)
-
-	func = arrow_call(func)
-
-	return cmd(func)
+	inputs = [inspect.Parameter("context", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Context)]
+	annotations = {"context": Context}
+	for name, parameter in parameters.items():
+		if name == "nb":
+			continue
+		if name == "note":
+			parameter = parameter.replace(annotation=str, default=inspect.Parameter.empty)
+		annotations[name] = parameter.annotation
+		inputs.append(parameter.replace(kind=inspect.Parameter.KEYWORD_ONLY))
+	if "note" in parameters:
+		inputs.append(inspect.Parameter("fuzzy", inspect.Parameter.KEYWORD_ONLY, default=False, annotation=bool))
+		annotations["fuzzy"] = bool
+		invoke = option("-n", "--note", required=True, type=str, help="The name of a note.")(invoke)
+		invoke = flag("--fuzzy", help="Explicitly accept the closest matching note name.")(invoke)
+	invoke.__signature__ = inspect.Signature(inputs)
+	invoke.__annotations__ = {name: value for name, value in annotations.items() if value is not inspect.Parameter.empty}
+	invoke.__name__ = function.__name__.lstrip("_")
+	return app.program(name=invoke.__name__.replace("_", "-"))(_command_errors(arrow_call(invoke)))
 
 
-def create_command(func):
-	""" actually instantiating the command
-		and specifically setattr-ing here after built is necessary
-
-	:param func: 
-	"""
-	c = _create_command(func)
-	setattr(sys.modules[__name__], func.__name__.lstrip('_'), c)
-
-
-def create_commands(module, _all=False):
-	""" 
-
-	:param module: an commands/module.py imported above
-	:param _all: _all=True will create a command from all leading underscore _func_name of module
-	"""
-	for k,v in module.__dict__.items():
-		# print(k) # _func's name...
-		if _all:
-			if (inspect.isfunction(v) 
-			and k.startswith('_')
-			and v.__module__ == module.__name__): # ignore if imported 
-				create_command(v)
-		else:
-			# leave open for additional bool switches
-			pass
-
+def create_command(function):
+	"""Register a notebook command while preserving its direct Python callable."""
+	command = _create_command(function)
+	setattr(sys.modules[__name__], function.__name__.lstrip("_"), command)
 
 
 BUILTIN_COMMANDS = (

@@ -6,7 +6,7 @@ from functools import wraps
 
 
 def pass_nb(func):
-	""" custom non-click pass_param decorator,
+	""" Inject a notebook into ordinary Python functions,
 		maily used to boilerplate each func rather than:
 		```if not nb:
 			nb = Notebook()```

@@ -265,17 +265,22 @@ documentation publication remain separate from notebook publishing.
 :hide:
 
 import json
-from click.testing import CliRunner
-from pnbp.cli import cli
+from contextlib import redirect_stdout
+from io import StringIO
+from pnbp.cli import app
+
+def run_cli(args):
+    output = StringIO()
+    with redirect_stdout(output):
+        app.invoke(args)
+    return output.getvalue()
 
 cli_workspace = TemporaryDirectory()
 try:
     cli_root = Path(cli_workspace.name) / "notes"
-    runner = CliRunner()
-    result = runner.invoke(cli, ["init", str(cli_root), "--dry-run"])
-    assert result.exit_code == 0 and not cli_root.exists(), result.output
-    result = runner.invoke(cli, ["init", str(cli_root)])
-    assert result.exit_code == 0, result.output
+    run_cli(["init", str(cli_root), "--dry-run"])
+    assert not cli_root.exists()
+    run_cli(["init", str(cli_root)])
     commands = (
         ["note", "add", "first", "--content", "#public #work\nA café example.\n"],
         ["note", "edit", "first", "--content", ""],
@@ -287,11 +292,9 @@ try:
         ["status", "--json"],
     )
     for command in commands:
-        result = runner.invoke(cli, ["--notebook", str(cli_root), *command])
-        assert result.exit_code == 0, result.output
-    result = runner.invoke(cli, ["--notebook", str(cli_root), "search", "café", "--tag", "work", "--json"])
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.output)["hits"][0]["name"] == "overview"
+        run_cli(["--notebook", str(cli_root), *command])
+    result = run_cli(["--notebook", str(cli_root), "search", "café", "--tag", "work", "--json"])
+    assert json.loads(result)["hits"][0]["name"] == "overview"
 finally:
     cli_workspace.cleanup()
 ```

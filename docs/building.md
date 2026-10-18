@@ -22,7 +22,7 @@ On Windows, use `.venv-docs\Scripts\python.exe` for the same commands.
 Open `docs/_build/html/index.html` after the build. Rerun the HTML build,
 emitted-link check and doctest build after edits. `-E` rebuilds the environment, `-n` checks references, and `-W`
 makes warnings fail the build. API reference imports use this checkout's
-`src/` directory, while CLI help comes from the actual Click command registry
+`src/` directory, while CLI help comes from the actual `expose_interface` command tree
 without running commands.
 
 The emitted-HTML check verifies local file and fragment links, and rejects

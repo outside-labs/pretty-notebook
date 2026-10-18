@@ -5,7 +5,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from click.testing import CliRunner
+from cli_runner import CliRunner
 
 from pretty_notebook import Notebook, IdentityError
 from pretty_notebook.cli import cli
