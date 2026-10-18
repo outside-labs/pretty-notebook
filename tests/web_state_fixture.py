@@ -28,6 +28,7 @@ def create_state(root):
     (blobs / (digest + '.html')).write_bytes(body)
     (images / 'fixture.png').write_bytes(b'synthetic-image')
     (root / 'web-settings.json').write_text('{"TITLE":"Synthetic site"}')
+    (root / 'site.lock').write_bytes(b'')
     with closing(sqlite3.connect(root / 'db.sqlite3')) as connection:
         for source, name in (('schema.py', 'BASE_SCHEMA'), ('catalog.py', 'CATALOG_SCHEMA')):
             for statement in constant(ROOT / 'apps/web/api' / source, name):

@@ -239,4 +239,4 @@ jobs:
       - name: Build pinned container without publishing
         run: docker build --platform linux/amd64 --build-arg PNBP_REVISION="$GITHUB_SHA" --file apps/web/container/Dockerfile --tag "pretty-notebook:$GITHUB_SHA" .
       - name: Exercise generated Compose startup and persistent restart
-        run: python scripts/check_container.py "$GITHUB_SHA"
+        run: sudo "$(command -v python)" scripts/check_container.py "$GITHUB_SHA"
