@@ -90,6 +90,8 @@ def check_container(spec, *, health=False, require_bootstrap=False):
         raise ValueError('Container image does not match the pinned revision.')
     _run_checked(['docker', 'run', '--rm', '--network', 'none', '--entrypoint', 'python', image, '-m', 'pip', 'check'], label='Container dependency check')
     result.update(profile='container', revision=revision, dependencies='ok')
+    from .web_state import inspect_web_state
+    result['storage'] = inspect_web_state(spec.data_dir, allow_new=True, allow_pending=True)
     if health:
         try:
             with urlopen(Request(f'http://127.0.0.1:{spec.port}/healthz', headers={'Host': spec.domain}), timeout=5) as response:

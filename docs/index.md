@@ -38,6 +38,7 @@ pnbp_commands
 
 web
 vps-deployment
+diagnostics
 container-deployment
 web-coverage
 server-state

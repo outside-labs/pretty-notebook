@@ -29,6 +29,8 @@ selection continues to work. [Settings](settings.md) documents profile registrat
 and configuration; [versions and support](versions.md) distinguishes the published
 0.9.0 package from the current 0.10 commands.
 
+See [diagnostics](diagnostics.md) for `pnbp doctor` and read-only web-state checks.
+
 ## Everyday workflow
 
 | Command | Purpose and canonical guide |
