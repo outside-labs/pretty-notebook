@@ -4,7 +4,7 @@ Pretty Notebook provides a Python library and a command-line interface for
 interconnected Markdown notebooks. These pages are built directly from the
 repository's Markdown documentation, which remains the editable source.
 
-The package release is `pretty-notebook==0.10.0`, with compatible `pnbp`
+The package release is `pretty-notebook==0.11.0`, with compatible `pnbp`
 imports and the command-line executable. The web application is a separate
 repository application with the [documented deployment constraints](web.md).
 See [package migration](package-migration.md) before upgrading from the old name.
@@ -55,6 +55,8 @@ public-navigation
 :maxdepth: 1
 :caption: Releases and development
 
+release-0.11.0
+release-0.11.0-readiness
 release-0.10.0
 release-0.10.0-readiness
 release-0.9.0

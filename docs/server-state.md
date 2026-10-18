@@ -1,7 +1,7 @@
-# Versioned server state (0.10)
+# Versioned server state
 
 The supported web profile is one Gunicorn instance with up to four workers, one local
-SQLite database, and one owning notebook. Starting the application now runs ordered schema migrations before
+SQLite database, and explicitly owned public notebooks. Starting the application now runs ordered schema migrations before
 accepting requests. It no longer generates the current ORM schema on every
 start. Migration version 1 establishes the supported account and contact inbox
 tables and records the baseline in `pnbp_schema_migrations`.
@@ -49,7 +49,8 @@ unrelated databases, pages, or sidecars from different backups.
 
 ## Publication catalog
 
-The catalog contains one default notebook UUID, distinct note UUIDs, canonical
+The catalog contains a default notebook UUID plus explicitly owned notebook UUIDs,
+distinct note UUIDs, canonical
 flat routes, aliases, titles, public/deleted visibility, and a current revision.
 Each revision records its exact rendered/body SHA-256, optional source hash,
 optional renderer fingerprint, observed HTML features, and UTC publication time.

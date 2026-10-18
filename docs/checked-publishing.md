@@ -1,8 +1,10 @@
 # Checked publishing
 
 The optional web server supports the authenticated `revision-1` protocol alongside
-the legacy 0.9 publishing endpoints. It retains the supported one-host, local-SQLite,
-single-notebook deployment profile.
+the legacy 0.9 publishing endpoints. It retains the supported one-host, local-SQLite
+deployment profile and selects one explicitly granted notebook per API request.
+`X-PNBP-Notebook` selects a registered notebook; absent headers select `default`.
+See [independent notebooks](web.md#independent-notebooks).
 
 Read `GET /api/publishing/capabilities` to negotiate the protocol. A client may
 fall back to legacy mode only when capabilities return 404; authentication,

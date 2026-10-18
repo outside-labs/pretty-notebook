@@ -1,6 +1,6 @@
 # CLI commands
 
-The unreleased command tree uses `expose_interface`. Installed `pnbp` command
+The 0.11 command tree uses `expose_interface`. Installed `pnbp` command
 names and options remain supported, including notebook/profile selection,
 repeated search tags, JSON reports and `--file -` for standard input. Invalid
 arguments exit 2; expected operation failures exit 1. Editor commands use

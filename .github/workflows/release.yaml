@@ -70,6 +70,7 @@ jobs:
           "$test_venv/bin/python" -m pip install dist/pretty-notebook/*.whl
           "$test_venv/bin/python" -m pip install --no-deps dist/pnbp/*.whl
           "$test_venv/bin/python" -m pip check
+          "$test_venv/bin/python" -c "import importlib.util; assert all(importlib.util.find_spec(name) is None for name in ('markdown', 'click', 'fastapi'))"
           "$test_venv/bin/python" -c "import pretty_notebook, pnbp; assert pretty_notebook.Notebook is pnbp.Notebook"
           "$test_venv/bin/pnbp" --help
           "$test_venv/bin/pnbp" deploy plan --domain notes.example.com \

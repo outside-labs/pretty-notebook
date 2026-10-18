@@ -227,7 +227,7 @@ receipts. Retry partial success by preparing a fresh plan. The CLI equivalent
 for a fresh reviewed run is `commit-remote --mode checked`.
 
 Remote pages are preserved by default. Use `--prune` only after reviewing a
-pruning plan and establishing that this one notebook owns the complete remote
+pruning plan and establishing that this notebook owns the selected remote
 page namespace. [Checked publishing](checked-publishing.md) is the canonical
 protocol and recovery guide.
 
