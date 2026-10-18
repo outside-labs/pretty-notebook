@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sqlite3
 
-MIGRATION_NAMES = {1: 'base-schema', 2: 'publication-catalog', 3: 'scoped-permissions', 4: 'notebook-ownership'}
+MIGRATION_NAMES = {1: 'base-schema', 2: 'publication-catalog', 3: 'scoped-permissions', 4: 'notebook-ownership', 5: 'operation-logs'}
 CURRENT_VERSION = max(MIGRATION_NAMES)
 BASE_COLUMNS = {
     'user': {'id', 'username', 'password_hash', 'tok_uuid'},
@@ -62,6 +62,8 @@ def inspect_web_state(root, *, allow_new=False, allow_pending=False):
             required = {**BASE_COLUMNS, **(CATALOG_COLUMNS if version >= 2 else {}), **(PERMISSION_COLUMNS if version >= 3 else {})}
             if version >= 4:
                 required = {**required, 'pnbp_notebooks': {'slot', 'id', 'owner_id'}}
+            if version >= 5:
+                required['pnbp_operation_events'] = {'id', 'operation_id', 'notebook_id', 'user_id', 'operation', 'outcome', 'status_code', 'started_at', 'finished_at'}
             for table, columns in required.items():
                 found = {row[1] for row in connection.execute(f'PRAGMA table_info("{table}")')}
                 if not columns <= found:

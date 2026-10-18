@@ -15,6 +15,7 @@ from tortoise.transactions import in_transaction
 from .catalog import CATALOG_SCHEMA
 from .permissions import PERMISSION_SCHEMA
 from .notebooks import OWNERSHIP_SCHEMA
+from .operation_logs import OPERATIONS_SCHEMA
 
 from pretty_notebook._internal.web_state import CURRENT_VERSION, BASE_COLUMNS, CATALOG_COLUMNS, MIGRATION_NAMES, PERMISSION_COLUMNS
 BASE_SCHEMA = (
@@ -31,7 +32,7 @@ BASE_SCHEMA = (
         "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )''',
 )
-MIGRATIONS = {1: (MIGRATION_NAMES[1], BASE_SCHEMA), 2: (MIGRATION_NAMES[2], CATALOG_SCHEMA), 3: (MIGRATION_NAMES[3], PERMISSION_SCHEMA), 4: (MIGRATION_NAMES[4], OWNERSHIP_SCHEMA)}
+MIGRATIONS = {1: (MIGRATION_NAMES[1], BASE_SCHEMA), 2: (MIGRATION_NAMES[2], CATALOG_SCHEMA), 3: (MIGRATION_NAMES[3], PERMISSION_SCHEMA), 4: (MIGRATION_NAMES[4], OWNERSHIP_SCHEMA), 5: (MIGRATION_NAMES[5], OPERATIONS_SCHEMA)}
 HISTORY_SCHEMA = '''CREATE TABLE IF NOT EXISTS pnbp_schema_migrations (
     version INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -87,6 +88,8 @@ async def _apply_migration(connection, version):
         await _validate_permissions(connection)
     if version >= 4:
         await _validate_ownership(connection)
+    if version >= 5:
+        await _validate_operations(connection)
 
 
 async def _validate_catalog(connection):
@@ -109,6 +112,12 @@ async def _validate_ownership(connection):
     rows = await connection.execute_query_dict("PRAGMA table_info(pnbp_notebooks)")
     if "owner_id" not in {row["name"] for row in rows}:
         raise RuntimeError("Invalid notebook ownership schema; restore a verified backup.")
+
+
+async def _validate_operations(connection):
+    rows = await connection.execute_query_dict("PRAGMA table_info(pnbp_operation_events)")
+    if not {"id", "operation_id", "notebook_id", "user_id", "operation", "outcome", "status_code", "started_at", "finished_at"} <= {row["name"] for row in rows}:
+        raise RuntimeError("Invalid operation log schema; restore a verified backup.")
 
 
 async def migrate():
@@ -135,6 +144,7 @@ async def migrate():
         await _validate_catalog(connection)
         await _validate_permissions(connection)
         await _validate_ownership(connection)
+        await _validate_operations(connection)
         return {"version": version, "backup_path": None, "backup_sha256": None}
 
     backup_path = backup_hash = None

@@ -425,6 +425,18 @@ def git_clone_pnbp_web():
 
 
 
+@app.program(name='logs')
+@flag('--remote', help='Read authenticated server events for the selected notebook.')
+@option('--limit', type=int, default=100)
+@option('--before', type=int, default=0)
+@_command_errors
+def logs(context: Context, *, remote: bool = False, limit: int = 100, before: int = 0):
+	"""Read bounded operation receipts without note contents or credentials."""
+	from .commands.logs import operation_logs
+	nb = _open_notebook(context)
+	_json_echo(operation_logs(nb, remote=remote, limit=limit, before=before), nb)
+
+
 def _create_command(function):
 	"""Adapt legacy notebook functions to an invocation-local native program."""
 	parameters = inspect.signature(function).parameters
@@ -433,6 +445,10 @@ def _create_command(function):
 	def invoke(context, **kwargs):
 		if "nb" in parameters:
 			kwargs["nb"] = _open_notebook(context)
+		if function.__name__.startswith("_collect") and "nb" in kwargs:
+			from ._internal.operation_logs import operation
+			with operation(kwargs["nb"].NOTE_PATH, "collect"):
+				return function(**kwargs)
 		return function(**kwargs)
 
 	inputs = [inspect.Parameter("context", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Context)]

@@ -157,8 +157,10 @@ class Notebook:
 
 		names = [note.name for note in self.unsaved_notes]
 
-		for name in names:
-			self.notes[name].save(self)
+		from pretty_notebook._internal.operation_logs import operation
+		with operation(self.NOTE_PATH, "flush"):
+			for name in names:
+				self.notes[name].save(self)
 
 		return names
 
@@ -594,7 +596,11 @@ class Notebook:
 		:param prune: remove every remote page absent from this notebook
 		:param refresh_images: resend referenced images even when names exist remotely
 		"""
-		return _publishing.post_commits(self, stage_only, prune=prune, refresh_images=refresh_images, mode=mode, accept_remote=accept_remote)
+		if stage_only:
+			return _publishing.post_commits(self, stage_only, prune=prune, refresh_images=refresh_images, mode=mode, accept_remote=accept_remote)
+		from pretty_notebook._internal.operation_logs import operation
+		with operation(self.NOTE_PATH, "publish"):
+			return _publishing.post_commits(self, stage_only, prune=prune, refresh_images=refresh_images, mode=mode, accept_remote=accept_remote)
 
 	def publication_plan(self, *, prune=False, refresh_images=False, limit=200, mode="auto", accept_remote=False):
 		"""Preview negotiated publication actions without writing local or remote state."""
