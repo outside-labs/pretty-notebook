@@ -69,14 +69,14 @@ def test_legacy_upgrade_preserves_state_tokens_messages_and_backup(tmp_path, web
         assert "{{ 7 * 7 }}" in client.get("/legacy").text
         assert client.post("/api/users", json={"username": "new-owner", "password_hash": "another sufficiently long password"}, headers=bootstrap_headers).status_code == 401
         report = app.state.schema_migration
-        assert report["version"] == 2
+        assert report["version"] == schema.CURRENT_VERSION
     assert legacy_rows(database) == before
     backup = Path(report["backup_path"])
     assert S_IMODE(backup.stat().st_mode) == 0o600
     assert report["backup_sha256"] == hashlib.sha256(backup.read_bytes()).hexdigest()
     assert legacy_rows(backup) == before
     with closing(sqlite3.connect(database)) as connection:
-        assert connection.execute("SELECT version, name, backup_path FROM pnbp_schema_migrations ORDER BY version").fetchall() == [(1, "base-schema", str(backup)), (2, "publication-catalog", str(backup))]
+        assert connection.execute("SELECT version, name, backup_path FROM pnbp_schema_migrations ORDER BY version").fetchall() == [(number, name, str(backup)) for number, name in schema.MIGRATION_NAMES.items()]
     with TestClient(create_app(db_url=f"sqlite://{database}")) as restarted:
         assert restarted.app.state.schema_migration["backup_path"] is None
         assert restarted.get("/healthz").status_code == 200
@@ -86,7 +86,7 @@ def test_legacy_upgrade_preserves_state_tokens_messages_and_backup(tmp_path, web
 def test_fresh_database_records_version_without_unnecessary_backup(tmp_path, web_storage):
     database = tmp_path / "fresh.sqlite3"
     with TestClient(create_app(db_url=f"sqlite://{database}")) as client:
-        assert client.app.state.schema_migration == {"version": 2, "backup_path": None, "backup_sha256": None}
+        assert client.app.state.schema_migration == {"version": schema.CURRENT_VERSION, "backup_path": None, "backup_sha256": None}
         assert client.get("/healthz").status_code == 200
     assert not (tmp_path / "migration-backups").exists()
 
@@ -111,7 +111,7 @@ def test_failed_schema_changes_roll_back_and_leave_backup(tmp_path, web_storage,
     assert legacy_rows(backup) == before
 
 
-@pytest.mark.parametrize("version,name", [(3, "future-schema"), (0, "base-schema"), (1, "unexpected-name")])
+@pytest.mark.parametrize("version,name", [(999, "future-schema"), (0, "base-schema"), (1, "unexpected-name")])
 def test_unknown_or_inconsistent_history_refuses_startup(tmp_path, web_storage, version, name):
     database = tmp_path / "history.sqlite3"
     with closing(sqlite3.connect(database)) as connection:

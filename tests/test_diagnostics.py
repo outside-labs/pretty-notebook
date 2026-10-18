@@ -1,4 +1,5 @@
 from contextlib import closing
+from pretty_notebook._internal.web_state import CURRENT_VERSION
 import json
 from pathlib import Path
 import sqlite3
@@ -41,7 +42,7 @@ def test_server_diagnostics_inspect_schema_blobs_and_counts(tmp_path):
     state = create_state(tmp_path / 'state')
     before = {path: path.read_bytes() for path in state.rglob('*') if path.is_file()}
     report = inspect_web_state(state)
-    assert report == {'state': 'ok', 'schema_version': 2, 'migration_needed': False,
+    assert report == {'state': 'ok', 'schema_version': CURRENT_VERSION, 'migration_needed': False,
                       'retained_blobs': 1, 'users': 1, 'inbox_messages': 1}
     assert before == {path: path.read_bytes() for path in state.rglob('*') if path.is_file()}
     blob, = (state / 'pages/.blobs').iterdir()

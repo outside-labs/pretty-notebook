@@ -10,9 +10,9 @@ from pydantic import Field
 
 from . import catalog, publish_api
 from .atomic_io import atomic_write_bytes
-from .auth_api import get_current_user
+from .permissions import require_permission
 
-router = APIRouter(prefix="/api/publishing", dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/publishing", dependencies=[Depends(require_permission("publish"))])
 
 
 class CheckedPublication(publish_api.PublicationInput):

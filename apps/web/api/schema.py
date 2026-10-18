@@ -13,8 +13,9 @@ from tortoise import connections
 from tortoise.backends.sqlite.client import SqliteClient
 from tortoise.transactions import in_transaction
 from .catalog import CATALOG_SCHEMA
+from .permissions import PERMISSION_SCHEMA
 
-from pretty_notebook._internal.web_state import CURRENT_VERSION, BASE_COLUMNS, CATALOG_COLUMNS, MIGRATION_NAMES
+from pretty_notebook._internal.web_state import CURRENT_VERSION, BASE_COLUMNS, CATALOG_COLUMNS, MIGRATION_NAMES, PERMISSION_COLUMNS
 BASE_SCHEMA = (
     '''CREATE TABLE IF NOT EXISTS "user" (
         "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -29,7 +30,7 @@ BASE_SCHEMA = (
         "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )''',
 )
-MIGRATIONS = {1: (MIGRATION_NAMES[1], BASE_SCHEMA), 2: (MIGRATION_NAMES[2], CATALOG_SCHEMA)}
+MIGRATIONS = {1: (MIGRATION_NAMES[1], BASE_SCHEMA), 2: (MIGRATION_NAMES[2], CATALOG_SCHEMA), 3: (MIGRATION_NAMES[3], PERMISSION_SCHEMA)}
 HISTORY_SCHEMA = '''CREATE TABLE IF NOT EXISTS pnbp_schema_migrations (
     version INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -81,6 +82,8 @@ async def _apply_migration(connection, version):
     await _validate_base(connection)
     if version >= 2:
         await _validate_catalog(connection)
+    if version >= 3:
+        await _validate_permissions(connection)
 
 
 async def _validate_catalog(connection):
@@ -90,6 +93,13 @@ async def _validate_catalog(connection):
             raise RuntimeError("Invalid publication catalog schema; restore a verified backup.")
     if await connection.execute_query_dict("PRAGMA foreign_key_check"):
         raise RuntimeError("Invalid publication catalog references; restore a verified backup.")
+
+
+async def _validate_permissions(connection):
+    for table, required in PERMISSION_COLUMNS.items():
+        rows = await connection.execute_query_dict(f'PRAGMA table_info("{table}")')
+        if not required <= {row["name"] for row in rows}:
+            raise RuntimeError("Invalid permission schema; restore a verified backup.")
 
 
 async def migrate():
@@ -114,6 +124,7 @@ async def migrate():
     if version == CURRENT_VERSION:
         await _validate_base(connection)
         await _validate_catalog(connection)
+        await _validate_permissions(connection)
         return {"version": version, "backup_path": None, "backup_sha256": None}
 
     backup_path = backup_hash = None
