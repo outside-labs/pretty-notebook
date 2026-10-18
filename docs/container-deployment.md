@@ -64,6 +64,7 @@ from the environment and recreate the container after claiming it.
 
 Generate `pnbp deploy upgrade --profile container` for the new full SHA into a new
 bundle directory. Build the new image before stopping the running service.
+Use the [verified recovery commands](backups.md) with `--profile container`.
 Record the old image ID/revision and back up the complete stopped state,
 private environment and proxy configuration. Stop the previous VPS/container
 before starting the replacement; never run both on the same state directory.

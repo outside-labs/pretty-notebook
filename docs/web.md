@@ -300,6 +300,10 @@ new uploads; do not edit a retained flat file to change an existing catalog head
 
 ## Backup, restore, and recovery
 
+The preview-first [verified backup and restore commands](backups.md) automate
+the current stopped-site SQLite/files/environment contract into new locations.
+The manual recovery procedure below remains available.
+
 Use stopped-site backups. Copying a live SQLite database and files separately
 does not provide a supported point-in-time snapshot.
 

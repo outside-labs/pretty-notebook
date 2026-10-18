@@ -1,6 +1,7 @@
 """Build-job smoke: generated Compose startup, owner claim, publication and restart."""
 
 import json
+from dataclasses import replace
 import os
 from pathlib import Path
 import socket
@@ -13,6 +14,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from pretty_notebook._internal.deployment import DeploySpec, write_bundle
+from pretty_notebook._internal.backups import backup_site, restore_site
 
 
 def run(*arguments):
@@ -30,7 +32,7 @@ def smoke(revision):
         environment = root / 'environment'
         environment.write_text(f'''PNBP_DATA_DIR=/var/lib/pretty-notebook
 PNBP_DATABASE_URL=sqlite:///var/lib/pretty-notebook/db.sqlite3
-PNBP_ALLOWED_HOSTS=127.0.0.1
+PNBP_ALLOWED_HOSTS=notes.example.com,127.0.0.1
 PNBP_ASSET_MODE=local
 PNBP_URL_PREFIX=
 PNBP_PORT={port}
@@ -47,6 +49,7 @@ PNBP_BOOTSTRAP_TOKEN=synthetic-container-bootstrap-32-bytes
         write_bundle(spec, output, profile='container')
         image = 'pretty-notebook:' + revision
         compose = ['docker', 'compose', '--file', str(output / 'compose.json')]
+        active_compose = compose
         # Ownership changes are confined to this disposable synthetic fixture.
         def ownership(uid, gid):
             run('docker', 'run', '--rm', '--network', 'none', '--user', '0:0', '--entrypoint', 'python',
@@ -79,6 +82,11 @@ PNBP_BOOTSTRAP_TOKEN=synthetic-container-bootstrap-32-bytes
                     headers={'Content-Type': 'application/json', 'X-PNBP-Bootstrap-Token': 'synthetic-container-bootstrap-32-bytes'})
             token = json.loads(request('/api/token', data=urlencode({'username': 'owner', 'password': 'synthetic-password-123'}).encode(),
                                        headers={'Content-Type': 'application/x-www-form-urlencoded'}))['access_token']
+            revoked = token
+            request('/api/users/me', data=json.dumps({'password_hash': 'replacement-password-123'}).encode(),
+                    headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
+            token = json.loads(request('/api/token', data=urlencode({'username': 'owner', 'password': 'replacement-password-123'}).encode(),
+                                       headers={'Content-Type': 'application/x-www-form-urlencoded'}))['access_token']
             headers = {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}
             request('/api/publishment', data=json.dumps({'name': 'persistent', 'content': '<p>Container survives</p>'}).encode(), headers=headers)
             for _ in range(2):
@@ -87,12 +95,30 @@ PNBP_BOOTSTRAP_TOKEN=synthetic-container-bootstrap-32-bytes
                 healthy()
                 assert b'Container survives' in request('/persistent')
                 assert json.loads(request('/api/users/me', headers={'Authorization': 'Bearer ' + token}))['username'] == 'owner'
-            print('Container smoke passed: generated Compose, four-worker startup, host filtering, owner claim, publication, idempotent rerun and two restarts.')
+            run(*compose, 'stop')
+            checkpoint = root / 'checkpoint'
+            backup_site(spec, checkpoint, profile='container', apply=True)
+            restored = restore_site(spec, checkpoint, root / 'restored', profile='container', apply=True)
+            recovered_spec = replace(spec, data_dir=Path(restored['state']), env_file=Path(restored['environment']))
+            recovered_bundle = root / 'recovered-bundle'
+            write_bundle(recovered_spec, recovered_bundle, profile='container')
+            active_compose = ['docker', 'compose', '--file', str(recovered_bundle / 'compose.json')]
+            run(*active_compose, 'up', '--detach', '--no-build', '--pull', 'never')
+            healthy()
+            assert b'Container survives' in request('/persistent')
+            assert json.loads(request('/api/users/me', headers={'Authorization': 'Bearer ' + token}))['username'] == 'owner'
+            try:
+                request('/api/users/me', headers={'Authorization': 'Bearer ' + revoked})
+                raise AssertionError('Revoked credentials were restored as active.')
+            except HTTPError as error:
+                assert error.code == 401
+            assert (state / 'db.sqlite3').exists()
+            print('Container smoke passed: generated Compose, four workers, host filtering, owner claim, publication, reruns, two restarts and verified stopped-site restore with token revocation.')
         except Exception:
             print(run('docker', 'logs', '--tail', '100', spec.service), file=sys.stderr)
             raise
         finally:
-            run(*compose, 'down', '--timeout', '10')
+            run(*active_compose, 'down', '--timeout', '10')
             ownership(os.getuid(), os.getgid())
 
 

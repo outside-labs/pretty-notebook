@@ -75,3 +75,37 @@ def check(*, health: bool = False, require_bootstrap: bool = False, profile: str
         report(lambda: check_container(DeploySpec(**kwargs), health=health, require_bootstrap=require_bootstrap))
     else:
         report(lambda: check_deployment(DeploySpec(**kwargs), health=health, require_bootstrap=require_bootstrap))
+
+
+def recovery_report(action):
+    """Keep private filesystem/database failures out of console reports."""
+    import sqlite3
+    def guarded():
+        try:
+            return action()
+        except (OSError, sqlite3.Error, UnicodeError):
+            raise CommandError('Recovery could not verify private files; preserve the original and any incomplete output.') from None
+    report(guarded)
+
+
+@deploy.program(name='backup')
+@options
+@option('--output', required=True)
+@option('--profile', choices=['vps', 'container'])
+@flag('--apply', help='Write the backup after verifying that the managed service is stopped.')
+def backup(*, output: Path, profile: str = 'vps', apply: bool = False, **kwargs):
+    """Preview or create a complete private stopped-site checkpoint in a new location."""
+    from pretty_notebook._internal.backups import backup_site
+    recovery_report(lambda: backup_site(DeploySpec(**kwargs), output, profile=profile, apply=apply))
+
+
+@deploy.program(name='restore')
+@options
+@option('--backup', dest='backup_path', required=True)
+@option('--output', required=True)
+@option('--profile', choices=['vps', 'container'])
+@flag('--apply', help='Restore into a new location after stopped-service and compatibility checks.')
+def restore(*, backup_path: Path, output: Path, profile: str = 'vps', apply: bool = False, **kwargs):
+    """Verify a checkpoint and prepare new state; never switch or start a service."""
+    from pretty_notebook._internal.backups import restore_site
+    recovery_report(lambda: restore_site(DeploySpec(**kwargs), backup_path, output, profile=profile, apply=apply))
