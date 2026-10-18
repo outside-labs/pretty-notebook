@@ -63,7 +63,12 @@ class DeploySpec:
         return {key: str(value) if isinstance(value, Path) else value for key, value in asdict(self).items()}
 
 
-def bundle(spec, operation='init'):
+def bundle(spec, operation='init', *, profile='vps'):
+    if profile == 'container':
+        from .containers import container_bundle
+        return container_bundle(spec, operation)
+    if profile != 'vps':
+        raise ValueError('Unknown deployment profile.')
     if operation not in ('init', 'upgrade'):
         raise ValueError('Unknown deployment operation.')
     values = {key.upper(): str(value) for key, value in spec.to_dict().items()}
@@ -92,12 +97,12 @@ def bundle(spec, operation='init'):
     return result
 
 
-def write_bundle(spec, output, *, operation='init'):
+def write_bundle(spec, output, *, operation='init', profile='vps'):
     output = Path(output).expanduser()
     if output.is_symlink():
         raise ValueError('Bundle directory must not be a symlink.')
     output = output.resolve()
-    contents = bundle(spec, operation)
+    contents = bundle(spec, operation, profile=profile)
     for name, content in contents.items():
         path = output / name
         if path.is_symlink() or (path.exists() and (not path.is_file() or path.read_text() != content)):
@@ -110,7 +115,8 @@ def write_bundle(spec, output, *, operation='init'):
                 target.write(content)
             path.chmod(0o700 if name.endswith('.sh') else 0o600)
     return {'output': str(output), 'operation': operation, 'revision': spec.revision,
-            'apply': f'sudo bash {shlex.quote(str(output / (operation + ".sh")))}'}
+            'apply': (f'Follow {output / "README.txt"}' if profile == 'container' else
+                      f'sudo bash {shlex.quote(str(output / (operation + ".sh")))}')}
 
 
 def _run_checked(arguments, *, cwd=None, label):
@@ -123,7 +129,7 @@ def _run_checked(arguments, *, cwd=None, label):
     return result.stdout.strip()
 
 
-def check_environment(spec, *, require_bootstrap=False):
+def check_environment(spec, *, require_bootstrap=False, expected_values=None):
     path = spec.env_file
     if path.is_symlink() or not path.is_file() or path.stat().st_mode & 0o077:
         raise ValueError('Environment file must be a private regular file (mode 0600).')
@@ -139,9 +145,11 @@ def check_environment(spec, *, require_bootstrap=False):
         if len(parsed) > 1:
             raise ValueError('Environment values containing spaces must be quoted.')
         values[match[1]] = parsed[0] if parsed else ''
-    for key, expected in {'PNBP_DATA_DIR': str(spec.data_dir),
+    expected_profile = {'PNBP_DATA_DIR': str(spec.data_dir),
                           'PNBP_DATABASE_URL': f'sqlite://{spec.data_dir / "db.sqlite3"}',
-                          'PNBP_URL_PREFIX': spec.prefix, 'PNBP_ASSET_MODE': 'local', 'JWT_ALGO': 'HS256'}.items():
+                          'PNBP_URL_PREFIX': spec.prefix, 'PNBP_ASSET_MODE': 'local', 'JWT_ALGO': 'HS256'}
+    expected_profile.update(expected_values or {})
+    for key, expected in expected_profile.items():
         if values.get(key, '') != expected: raise ValueError(f'Environment {key} does not match the deployment plan.')
     hosts = values.get('PNBP_ALLOWED_HOSTS', '').split(',')
     if spec.domain not in hosts or '*' in hosts:

@@ -39,31 +39,39 @@ deploy = Interface('deploy', description='Plan Linux VPS setup, inspect local st
 @deploy.program(name='plan')
 @options
 @option('--operation', choices=['init', 'upgrade'])
-def plan(*, operation: str = 'init', **kwargs):
+@option('--profile', choices=['vps', 'container'])
+def plan(*, operation: str = 'init', profile: str = 'vps', **kwargs):
     """Print an inspectable service/proxy/environment/script plan; write nothing."""
-    report(lambda: json.loads(bundle(DeploySpec(**kwargs), operation)['plan.json']))
+    report(lambda: json.loads(bundle(DeploySpec(**kwargs), operation, profile=profile)['plan.json']))
 
 
 @deploy.program(name='init')
 @options
 @option('--output', required=True)
-def initialize(*, output: Path, **kwargs):
+@option('--profile', choices=['vps', 'container'])
+def initialize(*, output: Path, profile: str = 'vps', **kwargs):
     """Write an idempotent setup bundle; secrets and live services remain untouched."""
-    report(lambda: write_bundle(DeploySpec(**kwargs), output))
+    report(lambda: write_bundle(DeploySpec(**kwargs), output, profile=profile))
 
 
 @deploy.program(name='upgrade')
 @options
 @option('--output', required=True)
-def upgrade(*, output: Path, **kwargs):
+@option('--profile', choices=['vps', 'container'])
+def upgrade(*, output: Path, profile: str = 'vps', **kwargs):
     """Write a pinned upgrade and rollback bundle with a stopped-state checkpoint."""
-    report(lambda: write_bundle(DeploySpec(**kwargs), output, operation='upgrade'))
+    report(lambda: write_bundle(DeploySpec(**kwargs), output, operation='upgrade', profile=profile))
 
 
 @deploy.program(name='check')
 @options
 @flag('--health', help='Also check the planned loopback health endpoint.')
 @flag('--require-bootstrap', help='Require an initial owner-claim secret.')
-def check(*, health: bool = False, require_bootstrap: bool = False, **kwargs):
+@option('--profile', choices=['vps', 'container'])
+def check(*, health: bool = False, require_bootstrap: bool = False, profile: str = 'vps', **kwargs):
     """Check private configuration, revision, dependencies, local assets and health."""
-    report(lambda: check_deployment(DeploySpec(**kwargs), health=health, require_bootstrap=require_bootstrap))
+    if profile == 'container':
+        from pretty_notebook._internal.containers import check_container
+        report(lambda: check_container(DeploySpec(**kwargs), health=health, require_bootstrap=require_bootstrap))
+    else:
+        report(lambda: check_deployment(DeploySpec(**kwargs), health=health, require_bootstrap=require_bootstrap))

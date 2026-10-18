@@ -34,7 +34,7 @@ untrusted users. Published page content is stored as data and is never compiled
 as a server-side Jinja template.
 
 Use [VPS deployment commands](vps-deployment.md) to generate systemd/nginx setup
-and stopped-service upgrade bundles. The manual contract below remains available.
+and stopped-service upgrade bundles, or the optional [Linux container profile](container-deployment.md). The manual contract below remains available.
 
 ## Install a reviewed checkout
 
