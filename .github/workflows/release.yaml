@@ -3,6 +3,12 @@ name: Publish Pretty Notebook to PyPI
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing published release tag to verify and publish
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -15,32 +21,52 @@ jobs:
   build:
     name: Build and verify Pretty Notebook
     runs-on: ubuntu-latest
+    outputs:
+      publish_compatibility: ${{ steps.verify.outputs.publish_compatibility }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.14"
 
-      - name: Verify release tag matches package version
+      - name: Verify published release and matching package version
+        id: verify
         shell: bash
+        env:
+          PNBP_RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           package_version="$(python -c 'import tomllib; f=open("pyproject.toml", "rb"); print(tomllib.load(f)["project"]["version"])')"
 
-          if [[ "${GITHUB_REF_NAME}" != "v${package_version}" ]]; then
-            echo "::error::Release tag ${GITHUB_REF_NAME} must equal v${package_version}"
+          if [[ "${PNBP_RELEASE_TAG}" != "v${package_version}" ]]; then
+            echo "::error::Release tag ${PNBP_RELEASE_TAG} must equal v${package_version}"
             exit 1
           fi
+
+          echo "Building published tag $PNBP_RELEASE_TAG at $(git rev-parse HEAD)"
+          gh release view "$PNBP_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease > "$RUNNER_TEMP/release-metadata.json"
+          python - "$RUNNER_TEMP/release-metadata.json" >> "$GITHUB_OUTPUT" <<'PYTHON'
+          import json
+          import sys
+          with open(sys.argv[1]) as source:
+              release = json.load(source)
+          if release["isDraft"]:
+              raise SystemExit("Publish the GitHub release before uploading packages.")
+          print("publish_compatibility=" + ("false" if release["isPrerelease"] else "true"))
+          PYTHON
 
       - name: Install project, test, check, and build tools
         run: |
           python -m pip install --upgrade build twine ruff pytest
-          python -m pip install --editable .
+          python -m pip install --editable ".[legacy-markdown]"
 
       - name: Check Python source
         run: |
@@ -125,7 +151,7 @@ jobs:
 
   publish-compatibility:
     name: Publish final pnbp compatibility distribution
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ needs.build.outputs.publish_compatibility == 'true' }}
     needs: [build, publish]
     runs-on: ubuntu-latest
     environment:
