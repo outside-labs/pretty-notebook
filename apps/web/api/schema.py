@@ -14,7 +14,7 @@ from tortoise.backends.sqlite.client import SqliteClient
 from tortoise.transactions import in_transaction
 from .catalog import CATALOG_SCHEMA
 
-CURRENT_VERSION = 2
+from pretty_notebook._internal.web_state import CURRENT_VERSION, BASE_COLUMNS, CATALOG_COLUMNS, MIGRATION_NAMES
 BASE_SCHEMA = (
     '''CREATE TABLE IF NOT EXISTS "user" (
         "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -29,7 +29,7 @@ BASE_SCHEMA = (
         "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )''',
 )
-MIGRATIONS = {1: ("base-schema", BASE_SCHEMA), 2: ("publication-catalog", CATALOG_SCHEMA)}
+MIGRATIONS = {1: (MIGRATION_NAMES[1], BASE_SCHEMA), 2: (MIGRATION_NAMES[2], CATALOG_SCHEMA)}
 HISTORY_SCHEMA = '''CREATE TABLE IF NOT EXISTS pnbp_schema_migrations (
     version INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -69,10 +69,7 @@ def _backup(filename, version):
 
 
 async def _validate_base(connection):
-    for table, required in {
-        "user": {"id", "username", "password_hash", "tok_uuid"},
-        "formsubmission": {"id", "form_name", "payload", "created_at"},
-    }.items():
+    for table, required in BASE_COLUMNS.items():
         rows = await connection.execute_query_dict(f'PRAGMA table_info("{table}")')
         if not required <= {row["name"] for row in rows}:
             raise RuntimeError(f"Unsupported legacy {table} schema; preserve state and restore a supported backup.")
@@ -87,11 +84,7 @@ async def _apply_migration(connection, version):
 
 
 async def _validate_catalog(connection):
-    for table, required in {
-        "pnbp_notebooks": {"slot", "id"},
-        "pnbp_notes": {"id", "notebook_id", "canonical_route", "aliases", "title", "visibility", "current_revision"},
-        "pnbp_revisions": {"note_id", "revision", "body_hash", "source_hash", "rendered_hash", "renderer_fingerprint", "feature_flags", "published_at"},
-    }.items():
+    for table, required in CATALOG_COLUMNS.items():
         rows = await connection.execute_query_dict(f'PRAGMA table_info("{table}")')
         if not required <= {row["name"] for row in rows}:
             raise RuntimeError("Invalid publication catalog schema; restore a verified backup.")

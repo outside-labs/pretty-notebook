@@ -287,6 +287,21 @@ def notebook_status(context: Context, *, output_json: bool = False, limit = 50):
 		print(f"{nb.NOTE_PATH}: {len(nb)} notes, {len(unsaved)} pending edits")
 
 
+@app.program(name="doctor")
+@flag('--json', dest='output_json', help='Print a bounded diagnostic report as JSON.')
+def doctor(context: Context, *, output_json: bool = False):
+	"""Inspect notebook configuration, access, identities and runtime packages without writes."""
+	from ._internal.diagnostics import diagnose_notebook
+	report = diagnose_notebook(context.obj['selection'])
+	if output_json:
+		print(json.dumps(report))
+	else:
+		for check in report['checks']:
+			print(f"{check['status']}: {check['check']}: {check['message']}")
+	if not report['ok']:
+		raise SystemExit(1)
+
+
 
 """ Pretty-Notebook/apps/web api connection commands:
 """

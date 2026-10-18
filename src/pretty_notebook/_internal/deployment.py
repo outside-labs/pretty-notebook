@@ -181,6 +181,8 @@ def check_deployment(spec, *, health=False, require_bootstrap=False):
     _run_checked([python, '-m', 'pip', 'check'], label='Dependency check')
     _run_checked([python, 'install_assets.py', '--check'], cwd=spec.checkout / 'apps/web', label='Local asset check')
     result.update(revision=revision, dependencies='ok', assets='ok', python=version)
+    from .web_state import inspect_web_state
+    result['storage'] = inspect_web_state(state, allow_new=True, allow_pending=True)
     if health:
         try:
             request = Request(f'http://127.0.0.1:{spec.port}/healthz', headers={'Host': spec.domain})
