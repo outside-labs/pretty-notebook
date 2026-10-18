@@ -415,11 +415,11 @@ def git_clone_pnbp_web():
 
 	cmd2 = ["git", "-C", "pnbp-web", "sparse-checkout", "set", "apps/web"]
 		
-	op = subprocess.run(cmd,capture_output=True)
+	op = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
 		
 	print(op.stderr) # git outputs stdout to stderr
 
-	wp = subprocess.run(cmd2, capture_output=True)
+	wp = subprocess.run(cmd2, capture_output=True, text=True, errors="replace")
 	
 	print(wp.stderr)
 
