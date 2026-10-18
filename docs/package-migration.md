@@ -20,6 +20,17 @@ that depends on `pretty-notebook==0.11.0`. It does not contain implementation
 modules or its own executable. The canonical package owns all imports and CLI
 files. New installations should request `pretty-notebook` directly.
 
+The 0.10 compatibility package pins the 0.10 canonical version. When retaining
+that metadata-only package, upgrade both names together so dependency checks
+remain consistent:
+
+```sh
+python -m pip install --upgrade pretty-notebook==0.11.0 pnbp==0.11.0
+```
+
+The uninstall-first instructions above remain required for pre-0.10 packages
+that own implementation files.
+
 The new distribution includes compatibility wrappers for `pnbp`, its models,
 helpers, commands, CLI and former private modules. Existing imports resolve to
 the same classes, exceptions and leaf modules, so a notebook is not maintained

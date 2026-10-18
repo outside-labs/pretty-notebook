@@ -12,7 +12,13 @@ python -m pip install --upgrade pretty-notebook==0.11.0
 
 `pretty_notebook` is the canonical import; `pnbp` imports and the executable
 remain compatible. The final metadata-only `pnbp==0.11.0` package depends on
-`pretty-notebook==0.11.0` exactly. Uninstall pre-0.10 `pnbp` before installing
+`pretty-notebook==0.11.0` exactly. If the 0.10 metadata-only `pnbp` package is
+installed, upgrade both distributions together to keep that pin consistent:
+
+```sh
+python -m pip install --upgrade pretty-notebook==0.11.0 pnbp==0.11.0
+```
+ Uninstall pre-0.10 `pnbp` before installing
 the canonical package because those older wheels own overlapping files. See
 [package migration](package-migration.md).
 
