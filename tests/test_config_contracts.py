@@ -1,7 +1,7 @@
 import json
 from stat import S_IMODE
 
-from click.testing import CliRunner
+from cli_runner import CliRunner
 
 import pretty_notebook.cli as cli_module
 from pretty_notebook import Notebook

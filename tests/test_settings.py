@@ -2,7 +2,7 @@ import json
 from stat import S_IMODE
 
 import pytest
-from click.testing import CliRunner
+from cli_runner import CliRunner
 
 from pretty_notebook import Notebook, NotebookSettings, SettingsError
 from pretty_notebook.cli import cli

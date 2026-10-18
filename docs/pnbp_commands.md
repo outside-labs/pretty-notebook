@@ -1,5 +1,18 @@
 # CLI commands
 
+The unreleased command tree uses `expose_interface`. Installed `pnbp` command
+names and options remain supported, including notebook/profile selection,
+repeated search tags, JSON reports and `--file -` for standard input. Invalid
+arguments exit 2; expected operation failures exit 1. Editor commands use
+`VISUAL`, then `EDITOR`, then the platform editor; closing an unchanged document
+leaves the note untouched.
+
+Python callers can use `pretty_notebook.cli.app.invoke([...])` for native
+invocation or `pretty_notebook.cli.cli([...])` for the console exit boundary.
+The command registry and exceptions now follow `expose_interface`. The core
+installation no longer requires Click; the optional web server still includes
+it as a dependency of Uvicorn.
+
 `pnbp --help` lists the current command registry. Use `pnbp COMMAND --help`
 for a command's exact options; the [API and CLI reference](reference.md) renders
 that same help without opening or changing a notebook.

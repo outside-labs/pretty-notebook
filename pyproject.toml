@@ -26,7 +26,7 @@ keywords = [
 ]
 
 dependencies = [
-    "click>=8.0",
+    "expose-interface>=0.1.0,<0.2",
     "requests>=2.26",
     "rich>=10.6",
 ]

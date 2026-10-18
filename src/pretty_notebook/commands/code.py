@@ -3,7 +3,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-import click
+from expose_interface import flag, option
 
 from pretty_notebook.models import Note, CodeBlock
 from pretty_notebook.helpers import pass_nb
@@ -130,16 +130,8 @@ def _collect_code_blocked(nb=None):
 
 
 @pass_nb
-@click.option(
-	'--overwrite',
-	is_flag=True,
-	help='Replace existing files under NOTE_PATH/code.',
-)
-@click.option(
-	'-l',
-	'--lang',
-	help=f'The code language or extension to save: {json.dumps(CodeBlock.LANG_EXTS)}',
-)
+@flag('--overwrite', help='Replace existing files under NOTE_PATH/code.')
+@option('-l', '--lang', help=f'The code language or extension to save: {json.dumps(CodeBlock.LANG_EXTS)}')
 def _extract_code_blocks(lang: str, note: Note, overwrite=False, nb=None):
 	"""Extract one language, preserving each code body as text."""
 	language, extension = _language_and_extension(lang)
@@ -148,11 +140,7 @@ def _extract_code_blocks(lang: str, note: Note, overwrite=False, nb=None):
 
 
 @pass_nb
-@click.option(
-	'--overwrite',
-	is_flag=True,
-	help='Replace existing files under NOTE_PATH/code.',
-)
+@flag('--overwrite', help='Replace existing files under NOTE_PATH/code.')
 def _extract_all_code_blocks(note: Note, overwrite=False, nb=None):
 	"""Extract every supported language, preserving JSON as JSON text."""
 	outputs = []

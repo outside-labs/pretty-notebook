@@ -10,7 +10,7 @@ from contextlib import closing
 from pathlib import Path
 
 import pytest
-from click.testing import CliRunner
+from cli_runner import CliRunner
 from pretty_notebook.cli import cli
 from pretty_notebook._internal.deployment import DeploySpec, bundle, write_bundle, check_environment, check_deployment
 

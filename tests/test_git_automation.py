@@ -1,6 +1,6 @@
 import subprocess
 
-import click
+from expose_interface import CommandError
 import pytest
 
 from pretty_notebook import Notebook
@@ -43,7 +43,7 @@ def test_nested_parent_repository_requires_explicit_root(monkeypatch, tmp_path):
 	(repository / "sibling.txt").write_text("do not stage\n", encoding="utf-8")
 	notebook = _load_notebook(monkeypatch, notes)
 
-	with pytest.raises(click.ClickException, match="repository root"):
+	with pytest.raises(CommandError, match="repository root"):
 		commit_commands._git_commit_notebook(nb=notebook)
 
 	assert _staged_paths(repository) == ()
@@ -82,7 +82,7 @@ def test_existing_staged_change_aborts_before_notebook_add(monkeypatch, tmp_path
 	_git(repository, "add", "sibling.txt")
 	notebook = _load_notebook(monkeypatch, notes)
 
-	with pytest.raises(click.ClickException, match="staged changes"):
+	with pytest.raises(CommandError, match="staged changes"):
 		commit_commands._git_commit_notebook(repo_root=repository, nb=notebook)
 
 	assert _staged_paths(repository) == ("sibling.txt",)
@@ -163,12 +163,12 @@ def test_failed_commit_leaves_notebook_changes_unstaged(monkeypatch, tmp_path):
 
 	def fail_commit(repository, *args, **kwargs):
 		if args and args[0] == "commit":
-			raise click.ClickException("simulated commit failure")
+			raise CommandError("simulated commit failure")
 		return original_run_git(repository, *args, **kwargs)
 
 	monkeypatch.setattr(commit_commands, "_run_git", fail_commit)
 
-	with pytest.raises(click.ClickException, match="simulated commit failure"):
+	with pytest.raises(CommandError, match="simulated commit failure"):
 		commit_commands._git_commit_notebook(nb=notebook)
 
 	assert _staged_paths(tmp_path) == ()

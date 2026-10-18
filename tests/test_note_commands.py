@@ -3,10 +3,10 @@ from datetime import datetime
 from stat import S_IMODE
 
 import pytest
-from click.testing import CliRunner
+from cli_runner import CliRunner
 
 from pretty_notebook import Notebook
-from pretty_notebook.cli import cli, BUILTIN_COMMANDS
+from pretty_notebook.cli import app, cli, BUILTIN_COMMANDS
 from pretty_notebook.settings import initialize_notebook
 
 
@@ -63,7 +63,7 @@ def test_show_requires_an_exact_note_and_never_writes(notes):
 
 def test_editor_cancel_does_not_write(notes, monkeypatch):
 	(notes / "example.md").write_text("Original")
-	monkeypatch.setattr("pnbp.cli.click.edit", lambda *args, **kwargs: None)
+	monkeypatch.setattr("pnbp.cli.edit_text", lambda *args, **kwargs: None)
 	result = CliRunner().invoke(cli, ["note", "edit", "example"])
 	assert result.exit_code == 0, result.output
 	assert (notes / "example.md").read_text() == "Original"
@@ -77,7 +77,7 @@ def test_editor_external_change_refuses_save_and_retains_draft(notes, monkeypatc
 		assert text == "Original"
 		source.write_text("External edit")
 		return "Our editor draft\n"
-	monkeypatch.setattr("pnbp.cli.click.edit", edit)
+	monkeypatch.setattr("pnbp.cli.edit_text", edit)
 	result = CliRunner().invoke(cli, ["note", "edit", "example"])
 	assert result.exit_code != 0
 	assert "changed on disk" in result.output
@@ -112,7 +112,7 @@ def test_explicit_notebook_path_takes_precedence(notes, monkeypatch):
 def test_default_registration_is_explicit_and_helpers_are_not_commands():
 	assert all(func.__name__.startswith("_") for func in BUILTIN_COMMANDS)
 	assert len(BUILTIN_COMMANDS) == len(set(BUILTIN_COMMANDS))
-	assert not {"run-git", "resolve-repository", "staged-paths", "note-path", "mention-pattern"} & set(cli.commands)
+	assert not {"run-git", "resolve-repository", "staged-paths", "note-path", "mention-pattern"} & ({p.name for p in app.programs} | set(app.children))
 
 
 def test_search_and_status_json_are_quiet_bounded_and_redacted(notes, monkeypatch):

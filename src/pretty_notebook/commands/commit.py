@@ -3,7 +3,7 @@ import re
 import subprocess
 from pathlib import Path, PurePosixPath
 
-import click
+from expose_interface import CommandError, option
 
 from pretty_notebook.helpers import _convert_datetime, pass_nb
 
@@ -43,11 +43,11 @@ def _run_git(repository, *args, allowed_returncodes=(0,), input=None):
 		detail = (result.stderr or result.stdout).strip()
 		if not detail:
 			detail = f"exit status {result.returncode}"
-		raise click.ClickException(f"Git command failed: {detail}")
+		raise CommandError(f"Git command failed: {detail}")
 	return result
 
 
-def _resolve_repository(note_path, repo_root=None, initialize=False):
+def _resolve_repository(note_path, repo_root: Path | None = None, initialize=False):
 	note_root = Path(note_path).expanduser().resolve()
 	expected_root = (
 		Path(repo_root).expanduser().resolve()
@@ -56,12 +56,12 @@ def _resolve_repository(note_path, repo_root=None, initialize=False):
 	)
 
 	if not expected_root.is_dir():
-		raise click.ClickException(f"Repository root is not a directory: {expected_root}")
+		raise CommandError(f"Repository root is not a directory: {expected_root}")
 
 	try:
 		note_root.relative_to(expected_root)
 	except ValueError as error:
-		raise click.ClickException(
+		raise CommandError(
 			f"NOTE_PATH is outside the configured repository root: {expected_root}"
 		) from error
 
@@ -79,7 +79,7 @@ def _resolve_repository(note_path, repo_root=None, initialize=False):
 			actual_root = note_root
 		else:
 			detail = (probe.stderr or probe.stdout).strip()
-			raise click.ClickException(
+			raise CommandError(
 				f"Expected Git repository at {expected_root}: {detail}"
 			)
 	else:
@@ -87,11 +87,11 @@ def _resolve_repository(note_path, repo_root=None, initialize=False):
 
 	if actual_root != expected_root:
 		if repo_root is None:
-			raise click.ClickException(
+			raise CommandError(
 				"NOTE_PATH is inside a parent Git repository. "
 				f"Pass --repo-root {actual_root} to authorize that repository root."
 			)
-		raise click.ClickException(
+		raise CommandError(
 			f"Configured repository root {expected_root} does not match {actual_root}"
 		)
 
@@ -136,18 +136,14 @@ def _unstage_notebook(repository, include):
 	)
 	if result.returncode:
 		detail = (result.stderr or result.stdout).strip()
-		raise click.ClickException(
+		raise CommandError(
 			f"Git operation failed and notebook changes could not be unstaged: {detail}"
 		)
 
 
-@click.option(
-	"--repo-root",
-	type=click.Path(path_type=Path, file_okay=False),
-	help="Expected Git repository root. Required when NOTE_PATH is inside a parent repository.",
-)
+@option('--repo-root', help='Expected Git repository root. Required when NOTE_PATH is inside a parent repository.')
 @pass_nb
-def _git_commit_notebook(repo_root=None, nb=None):
+def _git_commit_notebook(repo_root: Path | None = None, nb=None):
 	"""Commit notebook changes to a verified local Git repository."""
 	repository, relative_note_path = _resolve_repository(
 		nb.NOTE_PATH,
@@ -158,7 +154,7 @@ def _git_commit_notebook(repo_root=None, nb=None):
 
 	preexisting = _staged_paths(repository)
 	if preexisting:
-		raise click.ClickException(
+		raise CommandError(
 			"Git already has staged changes; commit or unstage them before running notebook automation."
 		)
 
@@ -170,7 +166,7 @@ def _git_commit_notebook(repo_root=None, nb=None):
 		_run_git(repository, "add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul", input=pathspecs)
 	staged = _staged_paths(repository)
 	if not staged:
-		click.echo("No notebook changes to commit.")
+		print("No notebook changes to commit.")
 		return None
 
 	unexpected = tuple(
@@ -183,7 +179,7 @@ def _git_commit_notebook(repo_root=None, nb=None):
 	)
 	if unexpected:
 		_unstage_notebook(repository, include)
-		raise click.ClickException(
+		raise CommandError(
 			"Refusing to commit paths outside the notebook scope: "
 			+ ", ".join(unexpected)
 		)
@@ -196,21 +192,17 @@ def _git_commit_notebook(repo_root=None, nb=None):
 			"-m",
 			f"Automated notebook commit at {timestamp}",
 		)
-	except click.ClickException:
+	except CommandError:
 		_unstage_notebook(repository, include)
 		raise
 
-	click.echo(result.stdout.strip())
+	print(result.stdout.strip())
 	return _run_git(repository, "rev-parse", "HEAD").stdout.strip()
 
 
-@click.option(
-	"--repo-root",
-	type=click.Path(path_type=Path, file_okay=False),
-	help="Expected Git repository root. Required when NOTE_PATH is inside a parent repository.",
-)
+@option('--repo-root', help='Expected Git repository root. Required when NOTE_PATH is inside a parent repository.')
 @pass_nb
-def _collect_git_diff(repo_root=None, nb=None):
+def _collect_git_diff(repo_root: Path | None = None, nb=None):
 	"""Write the notebook-scoped Git diff to ``all diff.md``."""
 	repository, relative_note_path = _resolve_repository(
 		nb.NOTE_PATH,
@@ -256,16 +248,16 @@ def _collect_git_diff(repo_root=None, nb=None):
 	return nb.generate_note("all diff", note_text, overwrite=True)
 
 
-@click.option("--path", default=".", type=click.Path(path_type=Path, file_okay=False))
+@option('--path', default='.')
 def _init_git_ignore(path):
 	"""Append essential patterns to ``.gitignore`` without replacing existing rules."""
 	root = Path(path).expanduser().resolve()
 	if not root.is_dir():
-		raise click.ClickException(f"Path is not a directory: {root}")
+		raise CommandError(f"Path is not a directory: {root}")
 
 	gitignore = root / ".gitignore"
 	if gitignore.is_symlink():
-		raise click.ClickException("Refusing to replace a symlinked .gitignore")
+		raise CommandError("Refusing to replace a symlinked .gitignore")
 
 	existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
 	existing_lines = set(existing.splitlines())
@@ -277,5 +269,5 @@ def _init_git_ignore(path):
 		updated += "\n".join(missing) + "\n"
 		gitignore.write_text(updated, encoding="utf-8")
 
-	click.echo(f".gitignore --> {root}")
+	print(f".gitignore --> {root}")
 	return gitignore

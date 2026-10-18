@@ -4,7 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from click.testing import CliRunner
+from cli_runner import CliRunner
 
 from pretty_notebook import Notebook, IdentityError
 from pretty_notebook._internal import identities as _identities, journal as _journal, moves as _moves

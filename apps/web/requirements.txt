@@ -9,6 +9,7 @@ certifi==2026.6.17
 cffi==2.0.0
 charset-normalizer==3.5.1
 click==8.4.2
+expose-interface==0.1.0
 fastapi==0.139.0
 gunicorn==26.0.0
 h11==0.16.0

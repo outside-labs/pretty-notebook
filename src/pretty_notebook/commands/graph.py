@@ -1,7 +1,7 @@
 from pathlib import Path
 from string import ascii_uppercase
 
-import click 
+from expose_interface import option
 
 from pretty_notebook.models import Notebook, Note
 from pretty_notebook.helpers import pass_nb
@@ -24,7 +24,7 @@ from pretty_notebook.helpers import pass_nb
 """
 
 @pass_nb
-@click.option('--tag', help="The name of the #tag to be graphed. (#tag or tag)")
+@option('--tag', help='The name of the #tag to be graphed. (#tag or tag)')
 def _create_tag_graph(tag: str, nb=None):
 	""" --tag -> nb/graph-tag-{tag}.md
 	"""

@@ -2,7 +2,7 @@ import json
 from dataclasses import replace
 
 import pytest
-from click.testing import CliRunner
+from cli_runner import CliRunner
 
 from pretty_notebook import Notebook, SearchHit
 from pretty_notebook.cli import cli

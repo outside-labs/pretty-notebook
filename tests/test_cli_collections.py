@@ -1,6 +1,6 @@
-from click.testing import CliRunner
+from cli_runner import CliRunner
 
-from pretty_notebook.cli import cli
+from pretty_notebook.cli import app, cli
 from pretty_notebook.commands import collect
 
 
@@ -61,4 +61,4 @@ def test_intended_collection_commands_appear_in_help():
         "collect-all-graphs",
         "collect-subl-projs",
     }
-    assert expected <= set(cli.commands)
+    assert expected <= ({p.name for p in app.programs} | set(app.children))

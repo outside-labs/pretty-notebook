@@ -2,7 +2,7 @@
 
 import pytest
 import requests
-from click.testing import CliRunner
+from cli_runner import CliRunner
 
 from pretty_notebook import Notebook
 from pretty_notebook.cli import cli
@@ -75,7 +75,7 @@ def test_favicon_cli_reports_new_url_and_optional_local_server(notebook, tmp_pat
     image = tmp_path / "site.png"
     image.write_bytes(b"png")
     calls = []
-    monkeypatch.setattr("pnbp.cli._open_notebook", lambda: notebook)
+    monkeypatch.setattr("pnbp.cli._open_notebook", lambda context: notebook)
 
     def post(url, **kwargs):
         calls.append(url)
@@ -92,7 +92,7 @@ def test_favicon_cli_reports_new_url_and_optional_local_server(notebook, tmp_pat
 def test_favicon_cli_reports_failure_without_credentials(notebook, tmp_path, monkeypatch):
     image = tmp_path / "site.png"
     image.write_bytes(b"png")
-    monkeypatch.setattr("pnbp.cli._open_notebook", lambda: notebook)
+    monkeypatch.setattr("pnbp.cli._open_notebook", lambda context: notebook)
 
     def failed(*args, **kwargs):
         raise requests.ConnectionError("private-site-token")
