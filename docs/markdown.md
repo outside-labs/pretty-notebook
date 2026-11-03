@@ -170,3 +170,8 @@ The direct renderer is used by notebook conversion, preview and publication.
 Navigation and graph heading validation use its same structured heading metadata.
 Python-Markdown is an optional compatibility backend rather than a runtime
 requirement; see the [migration guide](markdown-migration.md).
+
+## Independent extraction
+
+The [extraction inventory](markdown-extraction.md) records the generic parser
+closure, notebook adapters, notices, limits and decisions required before moving code.
