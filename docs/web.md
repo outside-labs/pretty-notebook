@@ -54,12 +54,21 @@ python3.11 -m venv .venv
   --require-hashes \
   --only-binary=:all: \
   --requirement apps/web/requirements.lock
+.venv/bin/python -m pip install --require-hashes --only-binary=:all: \
+  --requirement apps/web/requirements-storage-build.lock
+.venv/bin/python -m pip install --require-hashes --no-build-isolation \
+  --requirement apps/web/requirements-storage.lock
 .venv/bin/python -m pip install --editable . --no-deps
 .venv/bin/python -m pip check
 ```
 
 The lock is verified for Linux x86_64 on CPython 3.11 and 3.14. Other
 platforms are not part of the supported public-deployment profile.
+
+The separate storage locks qualify the unreleased Backpack Store snapshot
+facility by immutable source revision and archive hash. They install no web
+framework or ORM replacement. See [storage extraction](storage-extraction.md)
+for ownership, compatibility and stopped-service rollback.
 
 For dependency updates, regenerate from the repository root and confirm that
 both Python targets produce the same file:

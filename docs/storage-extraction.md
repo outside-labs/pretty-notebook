@@ -83,6 +83,30 @@ For any actual schema upgrade, restore the complete pre-upgrade state and its
 matching application version. Never run old code against newer schema history
 or mix database and blob trees from different checkpoints.
 
+## Adopted snapshot consumer
+
+The web migration backup now delegates to `backpack_store.snapshot_sqlite` at
+qualified development revision `696936ea2af46876bee61aefbf703a52edecc529`.
+The source archive and build tool have separate hash-locked requirements in
+`apps/web/requirements-storage.lock` and `requirements-storage-build.lock`.
+Install the build tool first, then the source with `--no-build-isolation`.
+The published Backpack Store 0.1.0 alone does not provide this snapshot API.
+
+Only the snapshot primitive moves. The async worker boundary, database filename
+prefix, private destination, backup receipts, schema version 5, Tortoise
+transactions, migration history, authorization and immutable blob ordering
+retain their existing ownership. Snapshot failures stop startup before SQL
+changes and return a value-free application error. Cancellation of the awaiting
+task does not stop the already-running SQLite worker; this retains the existing
+startup cancellation boundary and does not authorize migration retry in parallel.
+
+This change introduces no data/schema translation. Both the prior application
+and this checkout understand schema 5. Roll back code plus its dependency
+environment with services stopped; retain the complete version-matched
+database/blob/settings/environment checkpoint described in [backups](backups.md).
+For an actual later schema upgrade, restore the full pre-upgrade checkpoint and
+matching code before starting an older version.
+
 ## Acceptance to retain and port
 
 The following existing tests are the extraction checklist. Keep application

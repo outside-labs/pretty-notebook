@@ -1,13 +1,10 @@
 """Ordered SQLite upgrades with private, consistent pre-migration backups."""
 
 import asyncio
-import hashlib
-import os
-import sqlite3
-import tempfile
-from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
+
+from backpack_store import SnapshotError, snapshot_sqlite
 
 from tortoise import connections
 from tortoise.backends.sqlite.client import SqliteClient
@@ -43,32 +40,16 @@ HISTORY_SCHEMA = '''CREATE TABLE IF NOT EXISTS pnbp_schema_migrations (
 
 
 def _backup(filename, version):
-    """SQLite's backup API includes committed WAL state in one snapshot."""
+    """Delegate the consistent private snapshot while retaining history receipts."""
     database = Path(filename).expanduser().resolve()
     directory = database.parent / "migration-backups"
     if directory.is_symlink():
         raise RuntimeError("Migration backup directory must not be a symlink.")
-    directory.mkdir(mode=0o700, exist_ok=True)
-    fd, name = tempfile.mkstemp(prefix=f"{database.name}-from-v{version}-", suffix=".sqlite3", dir=directory)
-    os.close(fd)
-    path = Path(name)
     try:
-        with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as original:
-            with closing(sqlite3.connect(path)) as backup:
-                original.backup(backup)
-                if backup.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-                    raise RuntimeError("Migration database backup failed integrity validation.")
-        with path.open("rb") as stream:
-            os.fsync(stream.fileno())
-        fd = os.open(directory, os.O_RDONLY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
-        return str(path), hashlib.sha256(path.read_bytes()).hexdigest()
-    except BaseException:
-        path.unlink(missing_ok=True)
-        raise
+        receipt = snapshot_sqlite(database, directory, prefix=f"{database.name}-from-v{version}")
+    except SnapshotError:
+        raise RuntimeError("Migration database backup failed; preserve state and retry from a verified checkpoint.") from None
+    return str(receipt.path), receipt.sha256
 
 
 async def _validate_base(connection):

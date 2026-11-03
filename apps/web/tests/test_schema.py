@@ -194,13 +194,27 @@ def test_incomplete_current_history_is_not_accepted(tmp_path, web_storage):
 def test_partial_backup_failure_removes_incomplete_file(tmp_path, web_storage, root_credentials, monkeypatch):
     database = tmp_path / "legacy.sqlite3"
     seed_legacy(database, root_credentials)
-    real_connect = schema.sqlite3.connect
+    from backpack_store import snapshots
+    real_connect = snapshots.sqlite3.connect
     def fail_destination(path, *args, **kwargs):
         if isinstance(path, Path) and path.parent.name == "migration-backups":
             raise OSError("cannot open backup destination")
         return real_connect(path, *args, **kwargs)
-    monkeypatch.setattr(schema.sqlite3, "connect", fail_destination)
-    with pytest.raises(OSError, match="cannot open backup destination"):
+    monkeypatch.setattr(snapshots.sqlite3, "connect", fail_destination)
+    with pytest.raises(RuntimeError, match="Migration database backup failed"):
         with TestClient(create_app(db_url=f"sqlite://{database}")):
             pass
     assert list((tmp_path / "migration-backups").iterdir()) == []
+
+
+def test_snapshot_facility_preserves_consumer_prefix_and_receipt(tmp_path, monkeypatch):
+    from backpack_store import SnapshotReceipt
+    database = tmp_path / "Notes.sqlite3"
+    destination = tmp_path / "migration-backups" / "snapshot.sqlite3"
+    calls = []
+    def snapshot(source, directory, *, prefix):
+        calls.append((source, directory, prefix))
+        return SnapshotReceipt(destination, "a" * 64, 123)
+    monkeypatch.setattr(schema, "snapshot_sqlite", snapshot)
+    assert schema._backup(database, 4) == (str(destination), "a" * 64)
+    assert calls == [(database, database.parent / "migration-backups", "Notes.sqlite3-from-v4")]
