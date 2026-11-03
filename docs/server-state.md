@@ -1,5 +1,8 @@
 # Versioned server state
 
+The [storage extraction inventory](storage-extraction.md) records reusable
+facilities, the first narrow consumer and the acceptance required before adoption.
+
 The supported web profile is one Gunicorn instance with up to four workers, one local
 SQLite database, and explicitly owned public notebooks. Starting the application now runs ordered schema migrations before
 accepting requests. It no longer generates the current ORM schema on every
