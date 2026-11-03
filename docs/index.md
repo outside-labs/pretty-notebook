@@ -43,6 +43,7 @@ backups
 container-deployment
 web-coverage
 server-state
+storage-extraction
 assets
 appearance
 diagrams
