@@ -4,6 +4,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 COPY apps/web/requirements.lock /app/requirements.lock
 RUN python -m pip install --require-hashes --only-binary=:all: -r requirements.lock
+COPY apps/web/requirements-storage-build.lock apps/web/requirements-storage.lock /app/
+RUN python -m pip install --require-hashes --only-binary=:all: -r requirements-storage-build.lock \
+    && python -m pip install --require-hashes --no-build-isolation -r requirements-storage.lock
 
 COPY pyproject.toml LICENSE /app/
 COPY docs/pnbp.md /app/docs/pnbp.md
