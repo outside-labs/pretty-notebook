@@ -83,7 +83,7 @@ The web publisher is a repository application and is not included in the
 - Treat `pnbp_settings.json` as a secret when it contains `API_TOKEN`; exclude
   it from version control and backups shared with others.
 - A first owner on the supported web publisher requires the temporary bootstrap
-  secret described in the [deployment guide](https://github.com/outside-labs/pretty-notebook/blob/main/docs/web.md).
+  secret described in the [deployment guide](https://github.com/wispsy/pretty-notebook/blob/main/docs/web.md).
 
 ## Repository web publisher
 
@@ -99,7 +99,7 @@ inputs, health and security headers, restart persistence, stopped-site backup
 and restore coverage, and a production-command smoke test. Owner-authored page
 HTML is stored as data and is never compiled as a server-side Jinja template.
 
-Read the complete [web deployment contract](https://github.com/outside-labs/pretty-notebook/blob/main/docs/web.md)
+Read the complete [web deployment contract](https://github.com/wispsy/pretty-notebook/blob/main/docs/web.md)
 before exposing the application publicly. Horizontal scaling, multiple workers,
 remote databases, shared filesystems, untrusted editors, and independent
 notebooks sharing a prune namespace remain unsupported.
@@ -117,7 +117,7 @@ notebooks sharing a prune namespace remain unsupported.
 ## Release verification
 
 The published `0.9.0rc1` wheel passed the documented
-[candidate-readiness exercise](https://github.com/outside-labs/pretty-notebook/blob/main/docs/release-0.9.0-readiness.md)
+[candidate-readiness exercise](https://github.com/wispsy/pretty-notebook/blob/main/docs/release-0.9.0-readiness.md)
 on CPython 3.11.16 and 3.14.7, producing a GO decision for this final release.
 
 The final release workflow requires the `v0.9.0` tag to match the package

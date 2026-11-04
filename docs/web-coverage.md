@@ -64,7 +64,7 @@ The supported four-worker profile is now tested on fresh and legacy SQLite
 state, concurrent owner claims/stale writes, reads through every worker, and
 restart. TLS/DNS, operating-system permissions, free space, backup retention and
 target-host provisioning still need operational verification. The
-[0.11 ownership/access tasks](https://github.com/outside-labs/pretty-notebook/issues/97)
+[0.11 ownership/access tasks](https://github.com/wispsy/pretty-notebook/issues/97)
 remain separate product scope.
 
 ## Reproduce

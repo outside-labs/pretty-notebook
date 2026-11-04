@@ -17,5 +17,5 @@ python -m pip install pretty-notebook==0.11.0
 
 Notebook Markdown and settings are data outside the package installation.
 Back them up before upgrading and follow the
-[migration guide](https://github.com/outside-labs/pretty-notebook/blob/v0.11.0/docs/package-migration.md).
+[migration guide](https://github.com/wispsy/pretty-notebook/blob/v0.11.0/docs/package-migration.md).
 New installations should request `pretty-notebook` directly.

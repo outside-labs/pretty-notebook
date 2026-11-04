@@ -2,7 +2,7 @@
 
 Navigation is generated from the currently loaded notes, including pending
 edits. It does not create index notes or record visits during ordinary lookups.
-This is the local slice of [reading navigation](https://github.com/outside-labs/pretty-notebook/issues/91).
+This is the local slice of [reading navigation](https://github.com/wispsy/pretty-notebook/issues/91).
 
 ```python
 index = nb.navigation_index()

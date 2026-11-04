@@ -44,7 +44,7 @@ The installable `pnbp` package is the scope of this release candidate. These rep
 
 ## Candidate publication and verification
 
-The [v0.9.0rc1 GitHub Release](https://github.com/outside-labs/pretty-notebook/releases/tag/v0.9.0rc1) triggered a [successful release workflow](https://github.com/outside-labs/pretty-notebook/actions/runs/36261592281). Its build job checks the tag against the package version, compiles Python with warnings as errors, runs the release-blocking Ruff rules and regression suite, builds the source and wheel distributions, checks metadata with Twine, and smoke-tests an installed wheel with `pip check`, `import pnbp`, `pnbp --help`, and a Notebook load. A separate protected-environment job publishes to PyPI through trusted publishing.
+The [v0.9.0rc1 GitHub Release](https://github.com/wispsy/pretty-notebook/releases/tag/v0.9.0rc1) triggered a [successful release workflow](https://github.com/wispsy/pretty-notebook/actions/runs/36261592281). Its build job checks the tag against the package version, compiles Python with warnings as errors, runs the release-blocking Ruff rules and regression suite, builds the source and wheel distributions, checks metadata with Twine, and smoke-tests an installed wheel with `pip check`, `import pnbp`, `pnbp --help`, and a Notebook load. A separate protected-environment job publishes to PyPI through trusted publishing.
 
 The subsequent [final-release readiness exercise](release-0.9.0-readiness.md)
 validated the candidate on Python 3.11 and 3.14 and recorded a GO decision for

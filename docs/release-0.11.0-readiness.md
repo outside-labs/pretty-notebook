@@ -1,14 +1,14 @@
 # Pretty Notebook 0.11 readiness
 
 The selected foundation scope is recorded in
-[REL-05](https://github.com/outside-labs/pretty-notebook/issues/105).
+[REL-05](https://github.com/wispsy/pretty-notebook/issues/105).
 The release is `pretty-notebook==0.11.0` plus metadata-only `pnbp==0.11.0`.
 
 ## Implementation evidence
 
-- Scoped roles/grants/credentials: [PR #181](https://github.com/outside-labs/pretty-notebook/pull/181).
-- Independent public notebook ownership: [PR #182](https://github.com/outside-labs/pretty-notebook/pull/182).
-- Durable redacted operation logs: [PR #183](https://github.com/outside-labs/pretty-notebook/pull/183).
+- Scoped roles/grants/credentials: [PR #181](https://github.com/wispsy/pretty-notebook/pull/181).
+- Independent public notebook ownership: [PR #182](https://github.com/wispsy/pretty-notebook/pull/182).
+- Durable redacted operation logs: [PR #183](https://github.com/wispsy/pretty-notebook/pull/183).
 - Typed Markdown, CLI and operations changes retain their focused PR/check
   history in the Project. The complete foundation preserves the Python 3.11+
   library contract and existing coordinated worker/SQLite deployment.

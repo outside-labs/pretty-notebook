@@ -25,16 +25,16 @@ activation are deferred; tagged GitHub documentation provides the release refere
 - Candidate source: `b66c671730cd20a4b5f0994c95651dffe6263496`, tag `v0.10.0rc2`.
 - Library, web/coverage, JavaScript, packaging, deployment and strict docs CI
   passed before candidate publication.
-- The [rc2 release build](https://github.com/outside-labs/pretty-notebook/actions/runs/38091094329)
+- The [rc2 release build](https://github.com/wispsy/pretty-notebook/actions/runs/38091094329)
   passed on supported Python 3.14, including both distribution builds, strict
   metadata/ownership checks and the installed-wheel notebook exercise.
 - The earlier rc1 build stopped on the inherited Python 3.12 deployment check;
-  [the correction](https://github.com/outside-labs/pretty-notebook/pull/165)
+  [the correction](https://github.com/wispsy/pretty-notebook/pull/165)
   moved release builds to supported Python 3.14. No rc1 packages were uploaded.
-- The repository was renamed to `outside-labs/pretty-notebook` to match the
+- The repository was renamed to `wispsy/pretty-notebook` to match the
   pending publisher registration. Rerunning the failed upload succeeded;
   [the actual PyPI candidate](https://pypi.org/project/pretty-notebook/0.10.0rc2/)
-  is available. Publisher fields are owner `outside-labs`, repository
+  is available. Publisher fields are owner `wispsy`, repository
   `pretty-notebook`, workflow `release.yaml`, and environment `pypi`.
 - The actual PyPI wheel passed the library suite on Python 3.11.16 and 3.14.7:
   427 tests passed on each interpreter. Two Linux-only unit/nginx checks were

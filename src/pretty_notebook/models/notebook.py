@@ -619,7 +619,7 @@ class Notebook:
 	def web_settings_post(self):
 		""" request method to POST layout update 
 			from self.NOTE_PATH/pnbp_settings.json 
-			(see https://github.com/outside-labs/pretty-notebook/blob/main/apps/web-settings.json
+			(see https://github.com/wispsy/pretty-notebook/blob/main/apps/web-settings.json
 			for examples)
 		"""
 		return _publishing.web_settings_post(self)

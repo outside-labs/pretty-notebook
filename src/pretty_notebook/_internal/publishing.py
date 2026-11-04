@@ -342,7 +342,7 @@ def _legacy_post_commits(
 def web_settings_post(notebook):
 	""" request method to POST layout update
 		from notebook.NOTE_PATH/pnbp_settings.json
-		(see https://github.com/outside-labs/pretty-notebook/blob/main/apps/web-settings.json
+		(see https://github.com/wispsy/pretty-notebook/blob/main/apps/web-settings.json
 		for examples)
 	"""
 	h = notebook.get_headers()

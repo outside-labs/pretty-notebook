@@ -3,7 +3,7 @@
 This inventory is based on `32c0bda` and preserves the supported one-host Linux
 profile: up to four Gunicorn workers, one local SQLite database, one persistent
 state root and one application version at a time. It defines the first consumer
-for [PN-STORAGE-02](https://github.com/outside-labs/pretty-notebook/issues/187),
+for [PN-STORAGE-02](https://github.com/wispsy/pretty-notebook/issues/187),
 not an ORM replacement or a database-format change.
 
 ## Current ownership and coupling

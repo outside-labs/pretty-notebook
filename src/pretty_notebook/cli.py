@@ -410,7 +410,7 @@ def git_clone_pnbp_web():
 	"""
 	cmd = ["git", "clone", "--filter=blob:none", 
 			"--sparse", "--depth", "1", "--single-branch", 
-			"--branch", "main", "https://github.com/outside-labs/pretty-notebook.git",
+			"--branch", "main", "https://github.com/wispsy/pretty-notebook.git",
 			"pnbp-web"]
 
 	cmd2 = ["git", "-C", "pnbp-web", "sparse-checkout", "set", "apps/web"]

@@ -1,9 +1,9 @@
 # Markdown extraction inventory
 
-This inventory records [source revision `2bfc586cfce7e982f73cbbb0215c99260388f73c`](https://github.com/outside-labs/pretty-notebook/tree/2bfc586cfce7e982f73cbbb0215c99260388f73c/src/pretty_notebook/markdown). It
+This inventory records [source revision `2bfc586cfce7e982f73cbbb0215c99260388f73c`](https://github.com/wispsy/pretty-notebook/tree/2bfc586cfce7e982f73cbbb0215c99260388f73c/src/pretty_notebook/markdown). It
 proposes boundaries for an independent generic package; it does not move code,
 select a package identity or add a dependency. The owning decision is
-[Headless Spreadsheets MD-01](https://github.com/outside-labs/headless_spreadsheets/issues/11).
+[Headless Spreadsheets MD-01](https://github.com/wispsy/headless_spreadsheets/issues/11).
 
 ## Source closure
 

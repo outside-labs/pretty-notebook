@@ -34,7 +34,7 @@ mocs:
 ```
 ), 
 
-With [pnbp](https://github.com/outside-labs/pretty-notebook/blob/main/docs/pnbp.md),
+With [pnbp](https://github.com/wispsy/pretty-notebook/blob/main/docs/pnbp.md),
 
 ```sh
 % pnbp pprint -n index
@@ -83,11 +83,11 @@ Every internal link (e.g. ```[[LINK]]```) within the content of the current pret
 
 All in, you can achieve something to the effect of using a split-pane markdown editor in the terminal; viewing (and moving through the wiki-link .md system) with the rendered content on the left: 
 
-![left](https://github.com/outside-labs/pretty-notebook/blob/main/docs/pnano_left.png)
+![left](https://github.com/wispsy/pretty-notebook/blob/main/docs/pnano_left.png)
 
 while making edits in nano on the right:
 
-![right](https://github.com/outside-labs/pretty-notebook/blob/main/docs/pnano_right.png)
+![right](https://github.com/wispsy/pretty-notebook/blob/main/docs/pnano_right.png)
 
 
 ---

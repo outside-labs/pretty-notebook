@@ -11,14 +11,14 @@
 		"about": "/about/",
 		"contact": [
 			{
-				"github": "https://github.com/outside-labs/pretty-notebook"
+				"github": "https://github.com/wispsy/pretty-notebook"
 			},
 			{
 				"subname2": "/subroute2/"
 			}
 		]
 	},
-	"FOOTER": "<p>Published with Pretty Notebook by <a href=\"https://outside-labs.com\">Outside Labs</a>.</p>",
+	"FOOTER": "<p>Published with Pretty Notebook by <a href=\"https://wispsy.com\">Outside Labs</a>.</p>",
 	"TITLE": "Hello, world!",
 	"darkmode": false,
 	"hljs_light": "default",

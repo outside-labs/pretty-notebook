@@ -43,7 +43,7 @@ commit. Set `PNBP_REVISION` to that full commit SHA. The released `v0.9.0`
 tag retains its historical single-worker contract.
 
 ```bash
-git clone https://github.com/outside-labs/pretty-notebook.git pnbp
+git clone https://github.com/wispsy/pretty-notebook.git pnbp
 cd pnbp
 : "${PNBP_REVISION:?Set a reviewed 0.11 commit SHA}"
 git checkout --detach "$PNBP_REVISION"

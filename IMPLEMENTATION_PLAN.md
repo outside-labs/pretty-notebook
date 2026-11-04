@@ -4,7 +4,7 @@
 > Baseline: `main` at `681c41082e83e2df50a327024547ec64cd6f4f83`, released as `v0.9.0`.
 > Product direction: portable Markdown notebooks with reliable links, useful publishing, and explicit control over sharing and synchronization.
 
-> Tracking: all 42 cards have been transferred to the [GitHub Project](https://github.com/orgs/outside-labs/projects/1) and [linked issue/PR register](https://github.com/outside-labs/pretty-notebook/issues/81).
+> Tracking: all 42 cards have been transferred to the [GitHub Project](https://github.com/orgs/wispsy/projects/1) and [linked issue/PR register](https://github.com/wispsy/pretty-notebook/issues/81).
 > The details below preserve the original planning snapshot. Read the linked issues and Project for current scope, dependencies, planned PRs, and completion status; [docs/roadmap.md](docs/roadmap.md) provides the task index and implementation history.
 
 ## 1. Current baseline
@@ -23,7 +23,7 @@ This plan reconciles the current repository with **Pretty-Notebook 0.10 Planning
 | Rendering | Python-Markdown plus notebook extensions; Click, Rich, and Requests are also runtime dependencies. | Typed Markdown and dependency reduction are separate, measurable changes. |
 | Assets | Bootstrap CSS/JS, Mermaid, and Highlight.js use CDNs; Bootstrap Icons are already local with notices. Scripts are loaded broadly. | Add asset policy and conditional loading, then replace framework CSS/icons. |
 | Contact/favicon | Contact submissions persist and have an authenticated read API. `/favicon.ico` deliberately returns 404. | Build inbox management and notifications on the existing model; implement favicon upload/serving. |
-| Open work | [PUB-04 #56](https://github.com/outside-labs/pretty-notebook/issues/56), [APP-01 #57](https://github.com/outside-labs/pretty-notebook/issues/57); no open PRs at review time. | Reuse these issue identities when implementing their scope. |
+| Open work | [PUB-04 #56](https://github.com/wispsy/pretty-notebook/issues/56), [APP-01 #57](https://github.com/wispsy/pretty-notebook/issues/57); no open PRs at review time. | Reuse these issue identities when implementing their scope. |
 
 The dependency/security and web safety issues completed for 0.9 are historical work, not unfinished 0.10 gates. This snapshot is a planning review, not a new dependency audit.
 
@@ -319,7 +319,7 @@ Add generated notebook/directory indexes, breadcrumbs, a heading outline, backli
 
 ### DOC-02 — Build versioned Sphinx documentation and tutorials
 
-Introduce Sphinx with MyST for existing Markdown and targeted API/CLI reference generation. Configure Read the Docs; use outside-labs.com as the project landing page or a clearly directed documentation entry point.
+Introduce Sphinx with MyST for existing Markdown and targeted API/CLI reference generation. Configure Read the Docs; use wispsy.com as the project landing page or a clearly directed documentation entry point.
 
 - Cover first notebook, pending edits/save, add/rename, links/routes, publishing/dry-run, local assets, search/navigation, and deployment.
 - Publish current and versioned documentation with one canonical URL; avoid maintaining divergent copies.
@@ -350,7 +350,7 @@ Separate owner/site administration, notebook editing/publishing, inbox access, a
 
 ### PUB-04 — Support independent notebooks and ownership-scoped pruning
 
-Continue [issue #56](https://github.com/outside-labs/pretty-notebook/issues/56). Persist notebook ownership and explicit notebook slugs, bind publications/attachments to their owners, and scope inventories/deletion to the authenticated grant.
+Continue [issue #56](https://github.com/wispsy/pretty-notebook/issues/56). Persist notebook ownership and explicit notebook slugs, bind publications/attachments to their owners, and scope inventories/deletion to the authenticated grant.
 
 **Accept:** two notebooks with identical note names coexist; restart and partial upload retain ownership; A cannot overwrite/delete/prune B's state; legacy unscoped prune endpoints cannot bypass the new boundary. Close #56 only when the shared-site contract and migrations are verified.
 
@@ -484,7 +484,7 @@ Add a standards-based provider adapter using a maintained authentication library
 
 ### APP-01 — Validated desktop URL handlers and editor launchers
 
-Continue [issue #57](https://github.com/outside-labs/pretty-notebook/issues/57). Define one canonical URI format carrying a notebook identity and validated note/action. Support allowlisted editor/terminal adapters; do not treat Ghostty or another terminal as a note editor by default.
+Continue [issue #57](https://github.com/wispsy/pretty-notebook/issues/57). Define one canonical URI format carrying a notebook identity and validated note/action. Support allowlisted editor/terminal adapters; do not treat Ghostty or another terminal as a note editor by default.
 
 **Accept:** URL parsing rejects hostile encodings, path escapes, unknown actions, and shell interpolation. AppleScript/`.app` registration, installation, permissions, updates, and removal are documented and tested. Launching a link never saves, publishes, or executes arbitrary code without the defined explicit workflow.
 
@@ -512,7 +512,7 @@ Repeated planning notes are consolidated here so no major idea disappears.
 | Backlinks after rename, relationship UUIDs | ID-01 + LINK-02 |
 | Better inline code, fenced-code copy/language controls | CODE-02 |
 | Notebook/directory pages, next/related notes | NAV-01 |
-| Sphinx/Read the Docs/outside-labs.com documentation | DOC-02 |
+| Sphinx/Read the Docs/wispsy.com documentation | DOC-02 |
 | pydantic-settings | CFG-02 decision; optional web-layer evaluation |
 | pnano, URL schemes, AppleScript/.app, editor/terminal options | APP-01; keep existing issue #57 |
 | Front-end login, named users/groups, restricted links | AUTH-02, WEB-07, ACL-01, SHARE-01; tags do not authorize |
@@ -535,10 +535,10 @@ Repeated planning notes are consolidated here so no major idea disappears.
 
 Repository observations are pinned to the baseline above:
 
-- [0.9.0 release](https://github.com/outside-labs/pretty-notebook/releases/tag/v0.9.0) and [successful main CI](https://github.com/outside-labs/pretty-notebook/actions/runs/36949289081).
-- [Package metadata](https://github.com/outside-labs/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/pyproject.toml).
-- [Notebook loading/rendering/publication](https://github.com/outside-labs/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/src/pnbp/models/notebook.py), [Note edit/save state](https://github.com/outside-labs/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/src/pnbp/models/note.py), and [current flat link slugs](https://github.com/outside-labs/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/src/pnbp/models/components/link.py).
-- [Web deployment contract](https://github.com/outside-labs/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/docs/web.md), [app factory](https://github.com/outside-labs/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/apps/web/main.py), and [asset-loading template](https://github.com/outside-labs/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/apps/web/templates/shared/layout.html).
+- [0.9.0 release](https://github.com/wispsy/pretty-notebook/releases/tag/v0.9.0) and [successful main CI](https://github.com/wispsy/pretty-notebook/actions/runs/36949289081).
+- [Package metadata](https://github.com/wispsy/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/pyproject.toml).
+- [Notebook loading/rendering/publication](https://github.com/wispsy/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/src/pnbp/models/notebook.py), [Note edit/save state](https://github.com/wispsy/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/src/pnbp/models/note.py), and [current flat link slugs](https://github.com/wispsy/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/src/pnbp/models/components/link.py).
+- [Web deployment contract](https://github.com/wispsy/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/docs/web.md), [app factory](https://github.com/wispsy/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/apps/web/main.py), and [asset-loading template](https://github.com/wispsy/pretty-notebook/blob/681c41082e83e2df50a327024547ec64cd6f4f83/apps/web/templates/shared/layout.html).
 - Source brief: **Pretty-Notebook 0.10 Planning**, current contents read 2026-10-05, version 157.
 
 Primary technical references for implementation decisions:
