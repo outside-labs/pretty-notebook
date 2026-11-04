@@ -24,7 +24,7 @@ RUN cd /app/web && python install_assets.py --check
 
 ARG PNBP_REVISION
 RUN python -c 'import os,re; revision=os.environ["PNBP_REVISION"]; assert re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", revision); open("/app/revision", "w").write(revision+"\n")'
-LABEL org.opencontainers.image.source="https://github.com/outside-labs/pretty-notebook" \
+LABEL org.opencontainers.image.source="https://github.com/wispsy/pretty-notebook" \
       org.opencontainers.image.revision=$PNBP_REVISION
 
 RUN groupadd --gid 10001 notebook && useradd --uid 10001 --gid 10001 --no-create-home notebook \

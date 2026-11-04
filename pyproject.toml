@@ -35,10 +35,10 @@ dependencies = [
 legacy-markdown = ["markdown>=3.3.4"]
 
 [project.urls]
-Homepage = "https://outside-labs.com"
-Repository = "https://github.com/outside-labs/pretty-notebook"
-Documentation = "https://github.com/outside-labs/pretty-notebook/tree/v0.11.0/docs"
-Issues = "https://github.com/outside-labs/pretty-notebook/issues"
+Homepage = "https://wispsy.com"
+Repository = "https://github.com/wispsy/pretty-notebook"
+Documentation = "https://github.com/wispsy/pretty-notebook/tree/v0.11.0/docs"
+Issues = "https://github.com/wispsy/pretty-notebook/issues"
 
 [project.scripts]
 pnbp = "pretty_notebook.cli:cli"

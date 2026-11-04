@@ -18,7 +18,7 @@ Validation was completed on 2026-10-01 in America/Los_Angeles
 | Item | Value |
 | --- | --- |
 | Candidate | `pnbp==0.9.0rc1` from PyPI |
-| GitHub Release | [`v0.9.0rc1`](https://github.com/outside-labs/pretty-notebook/releases/tag/v0.9.0rc1) |
+| GitHub Release | [`v0.9.0rc1`](https://github.com/wispsy/pretty-notebook/releases/tag/v0.9.0rc1) |
 | Release target | `4497b81c0c2a7be38b35009473745aaf27876b65` |
 | Wheel | `pnbp-0.9.0rc1-py3-none-any.whl` |
 | Wheel SHA-256 | `67cbceb81865e34be89f5f798e557b9aa318dbb9ae716725c2aeb0b838d6efcf` |
@@ -74,7 +74,7 @@ the findings were confined to those installers, not `pnbp` or its runtime
 dependencies. Upgrading to `pip 26.2.1` and `setuptools 84.0.0` cleared the
 audit, and `pip check` remained clean.
 
-The post-WEB-05 [`main` workflow](https://github.com/outside-labs/pretty-notebook/actions/runs/36947023433)
+The post-WEB-05 [`main` workflow](https://github.com/wispsy/pretty-notebook/actions/runs/36947023433)
 also passed all five jobs at commit
 `6ca9b53956f18bf0b732b2a3a74cceae91d5b11d`: Python 3.11, Python 3.14,
 distribution build and installed-wheel smoke, Web API 3.11, and Web API 3.14.

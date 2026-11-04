@@ -5,7 +5,7 @@ if [[ -e "$checkout" ]]; then
     [[ "$(git_site rev-parse HEAD)" == "$revision" ]] || die 'Use the upgrade bundle to change an existing checkout revision.'
 else
     install -d -m 0755 "$(dirname -- "$checkout")"
-    (umask 022; git clone --no-checkout https://github.com/outside-labs/pretty-notebook.git "$checkout")
+    (umask 022; git clone --no-checkout https://github.com/wispsy/pretty-notebook.git "$checkout")
     git_site fetch origin "$revision"
     git_site checkout --detach "$revision"
 fi
